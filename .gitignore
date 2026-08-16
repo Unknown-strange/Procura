@@ -22,12 +22,12 @@ procura/.vercel/
 procura/supabase/.temp/
 
 # Large reference data (do not push to GitHub)
+# Do not use a bare `data/` rule — it also ignores procura/lib/data/
 *.xlsx
 *.xls
 UNGM_UNSPSC*
-data/
-data/raw/
 /data
+/data/raw/
 
 # Internal planning / design references (not for public repo)
 BUILD_PLAN.md
