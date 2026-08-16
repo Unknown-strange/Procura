@@ -62,7 +62,9 @@ supabase/.branches/
 *.xlsx
 *.xls
 *.csv
-!data/**/*.json
+/data
+/data/raw/
+procura/data/
 
 # OS junk
 desktop.ini

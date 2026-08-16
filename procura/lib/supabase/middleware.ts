@@ -11,7 +11,9 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 function copySessionCookies(from: NextResponse, to: NextResponse) {
-  to.cookies.setAll(from.cookies.getAll());
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie.name, cookie.value);
+  });
   return to;
 }
 

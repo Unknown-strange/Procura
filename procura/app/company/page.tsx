@@ -74,8 +74,8 @@ export default function CompanyProfilePage() {
           .maybeSingle();
 
         const types = (prefs?.procurement_types ?? [])
-          .map((t) => normalizeProcurementType(t))
-          .filter((t): t is ProcurementTypeOption => Boolean(t));
+          .map((t: string) => normalizeProcurementType(t))
+          .filter((t: ProcurementTypeOption | null): t is ProcurementTypeOption => Boolean(t));
         setInterestTypes(Array.from(new Set(types)));
       } catch {
         // offline / no supabase

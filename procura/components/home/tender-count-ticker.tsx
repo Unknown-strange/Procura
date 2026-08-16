@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/**
- * Never stops: counts 0 → total tenders on GHANEPS, pauses briefly on the
- * final number, then restarts from 0. Peak updates when scrapes add tenders.
- */
+/** Count up once to the live GHANEPS total, then hold. */
 export function TenderCountTicker({
   initialCount = 0,
   className = "",
@@ -17,10 +14,11 @@ export function TenderCountTicker({
   const [display, setDisplay] = useState(0);
   const targetRef = useRef(Math.max(0, initialCount));
   const valueRef = useRef(0);
-  const pauseUntilRef = useRef(0);
+  const doneRef = useRef(false);
 
   useEffect(() => {
     targetRef.current = Math.max(0, target);
+    if (target > valueRef.current) doneRef.current = false;
   }, [target]);
 
   useEffect(() => {
@@ -31,7 +29,7 @@ export function TenderCountTicker({
         const res = await fetch("/api/tender-stats", { cache: "no-store" });
         if (!res.ok) return;
         const json = (await res.json()) as { total?: number };
-        if (!cancelled && typeof json.total === "number" && json.total > 0) {
+        if (!cancelled && typeof json.total === "number" && json.total >= 0) {
           setTarget(json.total);
         }
       } catch {
@@ -40,7 +38,7 @@ export function TenderCountTicker({
     }
 
     refresh();
-    const poll = window.setInterval(refresh, 6000);
+    const poll = window.setInterval(refresh, 60_000);
     return () => {
       cancelled = true;
       clearInterval(poll);
@@ -58,40 +56,35 @@ export function TenderCountTicker({
 
       if (goal === 0) {
         setDisplay(0);
-        raf = requestAnimationFrame(step);
         return;
       }
 
-      if (now < pauseUntilRef.current) {
-        // hold on the last number
+      if (doneRef.current && valueRef.current >= goal) {
         setDisplay(goal);
-        raf = requestAnimationFrame(step);
         return;
       }
 
-      // ~2–6s to climb to the total, then restart
       const durationMs = Math.min(6000, Math.max(2000, goal * 35));
       const speed = goal / durationMs;
       valueRef.current += speed * elapsed;
 
       if (valueRef.current >= goal) {
         valueRef.current = goal;
+        doneRef.current = true;
         setDisplay(goal);
-        pauseUntilRef.current = now + 400; // brief stop on final number
-        valueRef.current = 0; // next climb starts from 0 after pause
-      } else {
-        setDisplay(Math.floor(valueRef.current));
+        return;
       }
 
+      setDisplay(Math.floor(valueRef.current));
       raf = requestAnimationFrame(step);
     };
 
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [target]);
 
   return (
-    <span className={`tabular-nums ${className}`} aria-live="off">
+    <span className={`tabular-nums ${className}`} aria-live="polite">
       {display.toLocaleString("en-GH")}
     </span>
   );

@@ -6,6 +6,9 @@
     "match-users": {
       "schedule": "15 */6 * * *"
     },
+    "send-notification": {
+      "schedule": "20 */6 * * *"
+    },
     "optimize-prompts": {
       "schedule": "0 3 * * 0"
     }

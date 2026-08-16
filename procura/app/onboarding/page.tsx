@@ -56,10 +56,11 @@ export default function OnboardingPage() {
 
         if (!prefs || cancelled) return;
 
-        const savedTypes = (prefs.procurement_types ?? []).filter((t): t is ProcurementTypeOption =>
-          PROCUREMENT_TYPE_OPTIONS.some((o) => o.value === t),
+        const savedTypes = (prefs.procurement_types ?? []).filter(
+          (t: string): t is ProcurementTypeOption =>
+            PROCUREMENT_TYPE_OPTIONS.some((o) => o.value === t),
         );
-        const savedRegions = (prefs.regions ?? []).filter((r): r is GhanaRegionOption =>
+        const savedRegions = (prefs.regions ?? []).filter((r: string): r is GhanaRegionOption =>
           (GHANA_REGION_OPTIONS as readonly string[]).includes(r),
         );
         if (savedTypes.length) setTypes(Array.from(new Set(savedTypes)));

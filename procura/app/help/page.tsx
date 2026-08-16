@@ -8,7 +8,7 @@ export default function HelpPage() {
         <h2 className="text-2xl font-bold text-[#131e17]">Help & Support</h2>
         <ol className="mt-4 list-decimal space-y-3 pl-5 text-lg leading-7 text-[#131e17]">
           <li>Find tenders sourced from GHANEPS.</li>
-          <li>Set UNSPSC interests on Company Profile so we can email matching tenders.</li>
+          <li>On Company Profile, add the types of tenders you bid for so we can email matching listings.</li>
           <li>Use Tender Assistant to understand requirements and check documents.</li>
           <li>Open the tender on GHANEPS to download packages and submit your bid.</li>
         </ol>

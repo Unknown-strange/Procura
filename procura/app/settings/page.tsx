@@ -62,7 +62,7 @@ export default function SettingsPage() {
 
         if (prefs) {
           setEmailAlerts(prefs.email_alerts ?? true);
-          const saved = (prefs.regions ?? []).filter((r): r is string => Boolean(r));
+          const saved = (prefs.regions ?? []).filter((r: string): r is string => Boolean(r));
           setRegions(Array.from(new Set(saved)));
         }
 

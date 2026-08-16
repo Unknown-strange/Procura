@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 type BrandMarkProps = {
   size?: "sm" | "md" | "lg";
@@ -26,13 +27,13 @@ export function BrandMark({
     <div
       className={`flex items-center ${s.gap} ${stacked ? "flex-col text-center" : ""}`}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src="/logo.png"
         alt="Procura"
         width={s.box}
         height={s.box}
         className="shrink-0 object-contain"
+        priority
       />
       <div>
         <p
