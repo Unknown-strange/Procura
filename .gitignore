@@ -1,0 +1,36 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.idea/
+.vscode/
+.cursor/
+
+# Env secrets (never commit)
+.env
+.env.*
+!.env.example
+!.env.local.example
+!.env*.example
+
+# Nested app build artifacts
+procura/node_modules/
+procura/.next/
+procura/out/
+procura/.vercel/
+procura/supabase/.temp/
+
+# Large reference data (do not push to GitHub)
+*.xlsx
+*.xls
+UNGM_UNSPSC*
+data/
+data/raw/
+/data
+
+# Internal planning / design references (not for public repo)
+BUILD_PLAN.md
+BUILD_CHECKLIST.md
+DESIGN_SYSTEM.md
+ui_procura/
