@@ -1,0 +1,38 @@
+Copyright (c) 2026 Procura. All rights reserved.
+
+PROPRIETARY SOFTWARE LICENSE
+
+This repository and all of its contents (the "Software"), including but not limited
+to source code, documentation, designs, data files, and configuration, are the
+exclusive property of the copyright holder.
+
+PERMISSION TO VIEW
+
+You may view this Software on GitHub for personal, non-commercial evaluation
+(for example, portfolio or demonstration purposes).
+
+RESTRICTIONS
+
+Except with prior written permission from the copyright holder, you may NOT:
+
+1. Use the Software, in whole or in part, for any purpose (including personal,
+   educational, internal, or commercial use);
+2. Copy, clone for reuse, modify, merge, publish, distribute, sublicense,
+   sell, or lease the Software;
+3. Create derivative works based on the Software;
+4. Remove or alter any copyright, trademark, or proprietary notices.
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING
+FROM THE SOFTWARE OR ITS USE.
+
+CONTACT
+
+For licensing or permission requests, contact the copyright holder.
+
+Third-party open-source dependencies used by this project remain under their
+own licenses and are not covered by this proprietary notice.

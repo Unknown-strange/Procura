@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "scrape-tenders": {
+      "schedule": "0 */6 * * *"
+    },
+    "match-users": {
+      "schedule": "15 */6 * * *"
+    },
+    "optimize-prompts": {
+      "schedule": "0 3 * * 0"
+    }
+  }
+}
