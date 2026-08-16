@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
-import { LayoutGrid, List, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import { TenderFiltersBar } from "@/components/tenders/tender-filters";
 
 export function TendersPageChrome({
@@ -38,20 +38,6 @@ export function TendersPageChrome({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#d6dfd5] bg-white text-[#006a3f]"
-            aria-label="Grid view"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#d6dfd5] bg-white text-[#6e7a70]"
-            aria-label="List view"
-          >
-            <List className="h-4 w-4" />
-          </button>
           <button
             type="button"
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#006a3f] px-4 text-sm font-bold text-white lg:hidden"

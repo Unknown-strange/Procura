@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 /**
  * match-users — match tenders to users by UNSPSC interests (+ region/type fallback).
  * Email path: send-notification uses ghaneps_url.
+ * Users need at least one procurement type and region (onboarding, or a type unlocked at score 90).
  */
 
 const corsHeaders = {
@@ -49,6 +50,7 @@ serve(async (req) => {
 
   for (const pref of prefs ?? []) {
     if (pref.email_alerts === false) continue;
+    if (!pref.procurement_types?.length || !pref.regions?.length) continue;
     const userKeys = interestByUser.get(pref.user_id) ?? new Set();
 
     for (const tender of tenders ?? []) {

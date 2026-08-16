@@ -1,26 +1,21 @@
 import { NextResponse } from "next/server";
-import { listTenders } from "@/lib/data/tenders";
-import { SEED_TENDERS } from "@/lib/data/seed-tenders";
+import { countTenders } from "@/lib/data/tenders";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Live tender total for homepage counter.
- * Uses Supabase when configured; otherwise seed count (demo).
- */
+/** Live tender total for the homepage counter. */
 export async function GET() {
   try {
-    const { total, source } = await listTenders({ page: 1, pageSize: 1 });
-    const count = source === "seed" ? SEED_TENDERS.length : total;
+    const total = await countTenders();
     return NextResponse.json({
-      total: count,
-      source,
+      total,
+      source: "supabase",
       label: "Total Tenders on GHANEPS",
     });
   } catch {
     return NextResponse.json({
-      total: SEED_TENDERS.length,
-      source: "seed",
+      total: 0,
+      source: "supabase",
       label: "Total Tenders on GHANEPS",
     });
   }

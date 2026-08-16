@@ -1,4 +1,4 @@
--- Seed categories + sample tenders for local/demo Supabase projects
+-- Categories only. Tender rows come from the GHANEPS scraper, not fixtures.
 insert into public.tender_categories (name, slug) values
   ('Construction', 'construction'),
   ('ICT', 'ict'),
@@ -6,9 +6,3 @@ insert into public.tender_categories (name, slug) values
   ('Water', 'water'),
   ('Consultancy', 'consultancy')
 on conflict (slug) do nothing;
-
-insert into public.procuring_entities (name, region) values
-  ('Community Water and Sanitation Agency', 'Central Region'),
-  ('Ministry of Local Government', 'Greater Accra'),
-  ('Ghana Health Service', 'Ashanti Region')
-on conflict do nothing;

@@ -10,17 +10,10 @@ import {
 import { BrandMark } from "@/components/brand/brand-mark";
 import { LandingHeader } from "@/components/home/landing-header";
 import { TenderCountTicker } from "@/components/home/tender-count-ticker";
-import { listTenders } from "@/lib/data/tenders";
-import { SEED_TENDERS } from "@/lib/data/seed-tenders";
+import { countTenders } from "@/lib/data/tenders";
 
 export default async function LandingPage() {
-  let initialCount = SEED_TENDERS.length;
-  try {
-    const { total, source } = await listTenders({ page: 1, pageSize: 1 });
-    initialCount = source === "seed" ? SEED_TENDERS.length : total;
-  } catch {
-    // seed fallback
-  }
+  const initialCount = await countTenders();
 
   return (
     <div className="min-h-screen overflow-x-clip bg-white text-[#131e17]">
@@ -108,16 +101,16 @@ export default async function LandingPage() {
                 <div className="rounded-xl border border-[#e8eee9] bg-white p-3">
                   <div className="mb-1 flex items-center gap-1.5 text-[#005C35]">
                     <Bookmark className="h-3.5 w-3.5" aria-hidden />
-                    <span className="text-[11px] font-semibold text-[#6e7a70]">Saved Tenders</span>
+                    <span className="text-[11px] font-semibold text-[#6e7a70]">Save tenders</span>
                   </div>
-                  <p className="text-xl font-bold">12</p>
+                  <p className="text-sm font-bold leading-5 text-[#0f1a14]">Keep a shortlist</p>
                 </div>
                 <div className="rounded-xl border border-[#e8eee9] bg-white p-3">
                   <div className="mb-1 flex items-center gap-1.5 text-[#c9a910]">
                     <Bell className="h-3.5 w-3.5" aria-hidden />
-                    <span className="text-[11px] font-semibold text-[#6e7a70]">New Alerts</span>
+                    <span className="text-[11px] font-semibold text-[#6e7a70]">Email alerts</span>
                   </div>
-                  <p className="text-xl font-bold">5</p>
+                  <p className="text-sm font-bold leading-5 text-[#0f1a14]">When a match appears</p>
                 </div>
               </div>
             </div>
@@ -158,8 +151,8 @@ export default async function LandingPage() {
                   Active
                 </span>
               </div>
-              <p className="text-sm font-bold text-[#0f1a14]">Feeder Roads Package A</p>
-              <p className="mt-1 text-xs text-[#6e7a70]">Eastern Region · Match 92%</p>
+              <p className="text-sm font-bold text-[#0f1a14]">Works tenders in your region</p>
+              <p className="mt-1 text-xs text-[#6e7a70]">Matched to the types and regions you choose</p>
             </div>
           </article>
 
@@ -177,10 +170,10 @@ export default async function LandingPage() {
                 New Match Found
               </p>
               <p className="mt-1 text-sm font-bold text-[#0f1a14]">
-                Min. of Health IT Infrastructure
+                A new listing that matches your types and regions
               </p>
               <p className="mt-1 text-xs text-[#6e7a70]">
-                Matches your UNSPSC / sector preferences
+                We email you when a GHANEPS tender fits what you chose
               </p>
             </div>
           </article>
@@ -228,8 +221,7 @@ export default async function LandingPage() {
             <div className="rounded-2xl border border-[#d6e5db] bg-white p-5 shadow-[0_12px_30px_rgba(15,40,25,0.08)]">
               <div className="mb-4 flex justify-end">
                 <div className="max-w-[90%] rounded-2xl rounded-br-md bg-[#eef1ef] px-4 py-3 text-sm leading-6 text-[#0f1a14]">
-                  What are the mandatory compliance documents for the &apos;Rural Electrification
-                  Phase 2&apos; tender?
+                  What documents do I usually need for a Ghana public tender?
                 </div>
               </div>
               <div className="flex gap-2">

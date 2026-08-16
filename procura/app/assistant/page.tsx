@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { OpenOnGhaneps } from "@/components/tenders/open-on-ghaneps";
-import { SEED_REQUIREMENTS, SEED_TENDERS } from "@/lib/data/seed-tenders";
 import { createClient } from "@/lib/supabase/client";
 import { ghanepsTenderUrl } from "@/lib/ghaneps";
 import {
   DOC_ACCEPT,
   DOCUMENT_TYPE_OPTIONS,
+  TYPICAL_TENDER_DOCUMENTS,
   type DocumentTypeValue,
   type UserDocument,
   documentsPromptBlock,
@@ -29,10 +29,20 @@ import {
   uploadUserDocument,
 } from "@/lib/documents";
 
+type TenderOption = {
+  id: string;
+  title: string;
+  procurement_type: string | null;
+  procuring_entity_name: string | null;
+  source_url: string | null;
+  ghaneps_id: string | null;
+};
+
 function AssistantInner() {
   const searchParams = useSearchParams();
-  const initialTender = searchParams.get("tender") ?? SEED_TENDERS[0]?.id ?? "";
-  const [tenderId, setTenderId] = useState(initialTender);
+  const requestedTender = searchParams.get("tender") ?? "";
+  const [tenders, setTenders] = useState<TenderOption[]>([]);
+  const [tenderId, setTenderId] = useState(requestedTender);
   const [answer, setAnswer] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [readyPercent, setReadyPercent] = useState<number | null>(null);
@@ -41,20 +51,13 @@ function AssistantInner() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadType, setUploadType] = useState<DocumentTypeValue>("tender");
-  const [ghanepsUrl, setGhanepsUrl] = useState<string | null>(
-    SEED_TENDERS[0]
-      ? ghanepsTenderUrl({
-          source_url: SEED_TENDERS[0].source_url,
-          ghaneps_id: SEED_TENDERS[0].ghaneps_id,
-        })
-      : null,
-  );
+  const [ghanepsUrl, setGhanepsUrl] = useState<string | null>(null);
 
   const hasUploads = docs.length > 0;
 
   const tender = useMemo(
-    () => SEED_TENDERS.find((t) => t.id === tenderId) ?? SEED_TENDERS[0],
-    [tenderId],
+    () => tenders.find((t) => t.id === tenderId) ?? tenders[0] ?? null,
+    [tenders, tenderId],
   );
 
   const refreshDocs = useCallback(async () => {
@@ -65,6 +68,54 @@ function AssistantInner() {
   useEffect(() => {
     void refreshDocs();
   }, [refreshDocs]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("tenders")
+          .select("id, title, procurement_type, source_url, ghaneps_id, procuring_entities ( name )")
+          .in("status", ["open", "closing_soon"])
+          .order("submission_deadline", { ascending: true })
+          .limit(50);
+        if (cancelled) return;
+        const mapped: TenderOption[] = (data ?? []).map((row) => {
+          const entityRaw = row.procuring_entities as
+            | { name: string }
+            | { name: string }[]
+            | null;
+          const entity = Array.isArray(entityRaw) ? entityRaw[0] : entityRaw;
+          return {
+            id: row.id,
+            title: row.title,
+            procurement_type: row.procurement_type,
+            procuring_entity_name: entity?.name ?? null,
+            source_url: row.source_url,
+            ghaneps_id: row.ghaneps_id,
+          };
+        });
+        setTenders(mapped);
+        const selected =
+          mapped.find((t) => t.id === requestedTender) ?? mapped[0] ?? null;
+        if (selected) {
+          setTenderId(selected.id);
+          setGhanepsUrl(
+            ghanepsTenderUrl({
+              source_url: selected.source_url,
+              ghaneps_id: selected.ghaneps_id,
+            }),
+          );
+        }
+      } catch {
+        if (!cancelled) setTenders([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [requestedTender]);
 
   async function getAccessToken() {
     try {
@@ -300,7 +351,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
           value={tenderId}
           onChange={(e) => {
             setTenderId(e.target.value);
-            const t = SEED_TENDERS.find((x) => x.id === e.target.value);
+            const t = tenders.find((x) => x.id === e.target.value);
             setGhanepsUrl(
               t
                 ? ghanepsTenderUrl({ source_url: t.source_url, ghaneps_id: t.ghaneps_id })
@@ -308,12 +359,17 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
             );
           }}
           className="h-12 w-full max-w-2xl rounded-xl border border-[#d6dfd5] bg-white px-4"
+          disabled={!tenders.length}
         >
-          {SEED_TENDERS.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.title}
-            </option>
-          ))}
+          {tenders.length ? (
+            tenders.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))
+          ) : (
+            <option value="">No open tenders loaded yet</option>
+          )}
         </select>
       </div>
 
@@ -322,7 +378,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
           <button
             key={a.id}
             type="button"
-            disabled={loading || a.locked}
+            disabled={loading || a.locked || !tender}
             onClick={a.onClick}
             className={`relative overflow-hidden rounded-2xl border p-5 text-left shadow-[0_2px_4px_rgba(32,43,36,0.04)] ${
               a.locked
@@ -375,10 +431,10 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
           <div className="mt-6 rounded-xl border border-dashed border-[#d6dfd5] bg-[#f8faf8] p-4">
             <p className="text-sm font-bold text-[#131e17]">Typical document checklist</p>
             <ul className="mt-3 space-y-2">
-              {SEED_REQUIREMENTS.map((r) => (
-                <li key={r.id} className="flex items-start gap-2 text-sm text-[#3e4941]">
+              {TYPICAL_TENDER_DOCUMENTS.map((text) => (
+                <li key={text} className="flex items-start gap-2 text-sm text-[#3e4941]">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#006a3f]" aria-hidden />
-                  {r.requirement_text}
+                  {text}
                 </li>
               ))}
             </ul>

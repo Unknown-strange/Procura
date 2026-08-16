@@ -13,14 +13,14 @@ export function TenderCountTicker({
   initialCount?: number;
   className?: string;
 }) {
-  const [target, setTarget] = useState(Math.max(1, initialCount));
+  const [target, setTarget] = useState(Math.max(0, initialCount));
   const [display, setDisplay] = useState(0);
-  const targetRef = useRef(Math.max(1, initialCount));
+  const targetRef = useRef(Math.max(0, initialCount));
   const valueRef = useRef(0);
   const pauseUntilRef = useRef(0);
 
   useEffect(() => {
-    targetRef.current = Math.max(1, target);
+    targetRef.current = Math.max(0, target);
   }, [target]);
 
   useEffect(() => {
@@ -54,7 +54,13 @@ export function TenderCountTicker({
     const step = (now: number) => {
       const elapsed = Math.min(64, now - last);
       last = now;
-      const goal = targetRef.current;
+      const goal = Math.max(0, targetRef.current);
+
+      if (goal === 0) {
+        setDisplay(0);
+        raf = requestAnimationFrame(step);
+        return;
+      }
 
       if (now < pauseUntilRef.current) {
         // hold on the last number

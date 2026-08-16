@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { OpenOnGhaneps } from "@/components/tenders/open-on-ghaneps";
+import { RecordTenderClick } from "@/components/tenders/record-tender-click";
 import { SaveTenderButton } from "@/components/tenders/tender-list";
 import { getTenderById } from "@/lib/data/tenders";
 import { daysUntil, formatDeadline } from "@/lib/utils";
@@ -19,6 +20,7 @@ export default async function TenderDetailPage({ params }: { params: Params }) {
 
   return (
     <AppShell title="Tender Details">
+      <RecordTenderClick tenderId={tender.id} />
       <Link
         href="/tenders"
         className="mb-6 inline-flex min-h-12 items-center gap-2 text-base font-semibold text-[#006a3f]"

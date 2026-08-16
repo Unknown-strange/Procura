@@ -125,7 +125,14 @@ export function normalizeProcurementType(value: string | null | undefined): Proc
   if (isProcurementType(value)) return value;
   if (value === "Services") return "Consulting Services";
   if (value === "Consultancy" || value === "Consultancy Services") return "Consulting Services";
-  if (value === "Technical Service") return "Technical Services";
+  if (
+    value === "Technical Service" ||
+    value === "Non-Consultancy" ||
+    value === "Non Consultancy" ||
+    value === "Non-consultancy"
+  ) {
+    return "Technical Services";
+  }
   if (value === "Disposal") return "Disposals";
   return null;
 }

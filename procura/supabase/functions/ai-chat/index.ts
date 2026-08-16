@@ -192,7 +192,7 @@ Type: ${tender.procurement_type}
 Region: ${tender.region}
 Deadline: ${tender.submission_deadline}
 GHANEPS URL: ${tender.source_url}`
-      : "Tender: (demo / not in database — answer from question and any documents)";
+        : "Tender: (not in database — answer from the question and any documents)";
 
     const userContent = `${tenderBlock}
 

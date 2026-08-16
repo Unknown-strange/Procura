@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") ?? "kwame@example.com";
+  const email = searchParams.get("email") ?? "your email";
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,8 @@ function VerifyOtpForm() {
         setError(verifyError.message);
         return;
       }
-      router.push("/dashboard");
+      router.push("/onboarding");
+      router.refresh();
     } catch {
       setError("Could not verify code.");
     } finally {

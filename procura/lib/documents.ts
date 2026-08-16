@@ -1,5 +1,14 @@
 import { createClient } from "@/lib/supabase/client";
 
+export const TYPICAL_TENDER_DOCUMENTS = [
+  "Valid business registration / Certificate of Incorporation",
+  "GRA Tax Clearance Certificate",
+  "SSNIT Clearance Certificate",
+  "Audited financial statements (often last 2–3 years)",
+  "Evidence of similar experience / past contracts",
+  "Tender-specific forms from the GHANEPS bidding pack",
+];
+
 export const DOCUMENT_BUCKET = "user-documents";
 export const MAX_DOC_BYTES = 10 * 1024 * 1024;
 export const DOC_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png";

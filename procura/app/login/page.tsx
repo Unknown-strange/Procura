@@ -49,17 +49,11 @@ export default function LoginPage() {
             continue on GHANEPS when you are ready to bid.
           </p>
           <div className="mt-8 rounded-2xl border border-[#d6dfd5] bg-white p-4 shadow-[0_2px_4px_rgba(32,43,36,0.04)] sm:mt-10">
-            <p className="text-sm font-bold text-[#006a3f]">Welcome to Procura</p>
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-[#f0fdf1] p-3">
-                <p className="text-xs text-[#6e7a70]">Dispositions</p>
-                <p className="text-2xl font-bold text-[#006a3f]">125</p>
-              </div>
-              <div className="rounded-xl bg-[#f0fdf1] p-3">
-                <p className="text-xs text-[#6e7a70]">Match Ready</p>
-                <p className="text-2xl font-bold text-[#006a3f]">88%</p>
-              </div>
-            </div>
+            <p className="text-sm font-bold text-[#006a3f]">Sourced from GHANEPS</p>
+            <p className="mt-2 text-sm leading-6 text-[#3e4941]">
+              Review matching tenders on Procura, then continue on the official GHANEPS site when
+              you are ready to bid.
+            </p>
           </div>
         </div>
 

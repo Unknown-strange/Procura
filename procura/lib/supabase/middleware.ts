@@ -1,5 +1,30 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { hasCompletedOnboarding } from "@/lib/onboarding";
+
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/verify-otp",
+]);
+
+function copySessionCookies(from: NextResponse, to: NextResponse) {
+  to.cookies.setAll(from.cookies.getAll());
+  return to;
+}
+
+function redirectWithSession(
+  request: NextRequest,
+  supabaseResponse: NextResponse,
+  pathname: string,
+) {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  url.search = "";
+  return copySessionCookies(supabaseResponse, NextResponse.redirect(url));
+}
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -28,6 +53,46 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const pathname = request.nextUrl.pathname;
+
+  if (pathname.startsWith("/api")) {
+    return supabaseResponse;
+  }
+
+  if (!user) {
+    if (pathname === "/onboarding") {
+      return redirectWithSession(request, supabaseResponse, "/login");
+    }
+    return supabaseResponse;
+  }
+
+  if (PUBLIC_PATHS.has(pathname)) {
+    return supabaseResponse;
+  }
+
+  const { data: prefs, error: prefsError } = await supabase
+    .from("user_preferences")
+    .select("procurement_types, regions, onboarding_completed_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (prefsError) {
+    return supabaseResponse;
+  }
+
+  const complete = hasCompletedOnboarding(prefs);
+
+  if (!complete && pathname !== "/onboarding") {
+    return redirectWithSession(request, supabaseResponse, "/onboarding");
+  }
+
+  if (complete && pathname === "/onboarding") {
+    return redirectWithSession(request, supabaseResponse, "/dashboard");
+  }
+
   return supabaseResponse;
 }
