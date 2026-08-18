@@ -1,16 +1,25 @@
-{
-  "functions": {
-    "scrape-tenders": {
-      "schedule": "0 */6 * * *"
-    },
-    "match-users": {
-      "schedule": "15 */6 * * *"
-    },
-    "send-notification": {
-      "schedule": "20 */6 * * *"
-    },
-    "optimize-prompts": {
-      "schedule": "0 3 * * 0"
-    }
-  }
-}
+project_id = "procura"
+
+[functions.scrape-tenders]
+verify_jwt = false
+
+[functions.match-users]
+verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.classify-tender]
+verify_jwt = false
+
+[functions.analyze-tender]
+verify_jwt = false
+
+[functions.check-user-documents]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.optimize-prompts]
+verify_jwt = false

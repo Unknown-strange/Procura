@@ -3,9 +3,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, X } from "lucide-react";
+import { PasswordField } from "@/components/auth/password-field";
 import { AppShell } from "@/components/layout/app-shell";
-import { createClient } from "@/lib/supabase/client";
 import { GHANA_REGION_OPTIONS } from "@/lib/ghaneps";
+import { scorePassword } from "@/lib/password-strength";
+import { createClient } from "@/lib/supabase/client";
 
 type Tab = "Profile" | "Notifications" | "Security";
 type DigestFrequency = "immediate" | "daily" | "weekly" | "off";
@@ -186,8 +188,8 @@ export default function SettingsPage() {
     setLoading(true);
     setMessage("");
 
-    if (newPassword.length < 8) {
-      setMessage("Password must be at least 8 characters.");
+    if (scorePassword(newPassword).passed < 3 || newPassword.length < 8) {
+      setMessage("Choose a stronger password. Use the checklist under the password field.");
       setLoading(false);
       return;
     }
@@ -408,34 +410,22 @@ export default function SettingsPage() {
                   Email changes are handled through your auth provider.
                 </p>
               </div>
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[#3e4941]" htmlFor="new-pass">
-                  New password
-                </label>
-                <input
-                  id="new-pass"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="At least 8 characters"
-                  className="h-12 w-full rounded-xl border border-[#d6dfd5] px-4 text-base focus:border-2 focus:border-[#006a3f] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label
-                  className="mb-2 block text-sm font-bold text-[#3e4941]"
-                  htmlFor="confirm-pass"
-                >
-                  Confirm new password
-                </label>
-                <input
-                  id="confirm-pass"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="h-12 w-full rounded-xl border border-[#d6dfd5] px-4 text-base focus:border-2 focus:border-[#006a3f] focus:outline-none"
-                />
-              </div>
+              <PasswordField
+                id="new-pass"
+                label="New password"
+                value={newPassword}
+                onChange={setNewPassword}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
+                showStrength
+              />
+              <PasswordField
+                id="confirm-pass"
+                label="Confirm new password"
+                value={confirmPassword}
+                onChange={setConfirmPassword}
+                autoComplete="new-password"
+              />
               <p className="text-sm text-[#6e7a70]">
                 Forgot your current password?{" "}
                 <Link href="/forgot-password" className="font-bold text-[#006a3f]">

@@ -40,8 +40,8 @@ function VerifyOtpForm() {
       }
       router.push("/onboarding");
       router.refresh();
-    } catch {
-      setError("Could not verify code.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not verify code.");
     } finally {
       setLoading(false);
     }

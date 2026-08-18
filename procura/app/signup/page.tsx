@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { PasswordField } from "@/components/auth/password-field";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { scorePassword } from "@/lib/password-strength";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
@@ -20,6 +22,10 @@ export default function SignupPage() {
     e.preventDefault();
     if (!agreed) {
       setError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+    if (scorePassword(password).passed < 3 || password.length < 8) {
+      setError("Choose a stronger password. Use the checklist under the password field.");
       return;
     }
     setLoading(true);
@@ -41,8 +47,12 @@ export default function SignupPage() {
         return;
       }
       router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
-    } catch {
-      setError("Could not create account. Check Supabase settings.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not create account. Check your connection and try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -97,13 +107,6 @@ export default function SignupPage() {
                 placeholder: "kwame@horizonbuilders.com",
                 type: "email",
               },
-              {
-                label: "Password",
-                value: password,
-                set: setPassword,
-                placeholder: "••••••••",
-                type: "password",
-              },
             ].map((f) => (
               <div key={f.label}>
                 <label className="mb-2 block text-sm font-bold text-[#3e4941]">{f.label}</label>
@@ -117,6 +120,16 @@ export default function SignupPage() {
                 />
               </div>
             ))}
+
+            <PasswordField
+              id="signup-password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              required
+              autoComplete="new-password"
+              showStrength
+            />
 
             <label className="flex items-start gap-3 text-sm text-[#3e4941]">
               <input

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { PasswordField } from "@/components/auth/password-field";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,7 +11,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -29,8 +28,12 @@ export default function LoginPage() {
       }
       router.push("/dashboard");
       router.refresh();
-    } catch {
-      setError("Could not log in. Check your connection and Supabase settings.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not log in. Check your connection and try again.",
+      );
     } finally {
       setLoading(false);
     }
@@ -79,30 +82,14 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-bold text-[#3e4941]" htmlFor="password">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="h-12 w-full rounded-xl border border-[#d6dfd5] px-4 pr-12 text-base placeholder:text-[#6e7a70] focus:border-2 focus:border-[#006a3f] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6e7a70]"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
+            <PasswordField
+              id="password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              required
+              autoComplete="current-password"
+            />
 
             <div className="flex items-center justify-between gap-3 text-sm">
               <label className="flex items-center gap-2 font-medium text-[#3e4941]">
