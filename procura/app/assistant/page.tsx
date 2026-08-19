@@ -14,6 +14,7 @@ import {
 import {
   Bot,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   FileSearch,
   FileText,
@@ -21,7 +22,9 @@ import {
   Lightbulb,
   Lock,
   Paperclip,
+  SquarePen,
 } from "lucide-react";
+import { ChatMarkdown } from "@/components/assistant/chat-markdown";
 import { AppShell } from "@/components/layout/app-shell";
 import { OpenOnGhaneps } from "@/components/tenders/open-on-ghaneps";
 import { createClient } from "@/lib/supabase/client";
@@ -51,7 +54,7 @@ type ChatMessage = {
 };
 
 const EMPTY_ASSISTANT =
-  "Start with “Documents Needed”, then upload a tender PDF if you want analysis.";
+  "Start with **Documents Needed**, then upload a tender PDF if you want analysis.";
 
 function newMessageId() {
   return crypto.randomUUID();
@@ -71,11 +74,14 @@ function AssistantInner() {
   const [lastUploadName, setLastUploadName] = useState<string | null>(null);
   const [docs, setDocs] = useState<UserDocument[]>([]);
   const [ghanepsUrl, setGhanepsUrl] = useState<string | null>(null);
+  const [showJump, setShowJump] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stickToBottom = useRef(true);
 
   const hasUploads = docs.length > 0;
   const canAsk = Boolean(draft.trim()) && !loading;
+  const hasChat = messages.length > 0;
 
   const tender = useMemo(
     () => tenders.find((t) => t.id === tenderId) ?? tenders[0] ?? null,
@@ -95,10 +101,25 @@ function AssistantInner() {
     void refreshDocs();
   }, [refreshDocs]);
 
-  useEffect(() => {
+  function scrollThreadToBottom() {
     const el = threadRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
+    stickToBottom.current = true;
+    setShowJump(false);
+  }
+
+  function onThreadScroll() {
+    const el = threadRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+    stickToBottom.current = nearBottom;
+    setShowJump(!nearBottom);
+  }
+
+  useEffect(() => {
+    if (stickToBottom.current) scrollThreadToBottom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, loading]);
 
   useEffect(() => {
@@ -221,6 +242,15 @@ Procura helps with the tender pack itself:
 Upload the tender document (or other working files) if you want the AI to analyze that pack. Official bidding stays on GHANEPS.`;
   }
 
+  function startNewChat() {
+    setMessages([]);
+    setDraft("");
+    setStatusMessage("");
+    setReadyPercent(null);
+    stickToBottom.current = true;
+    setShowJump(false);
+  }
+
   async function sendChat(userText: string, command = "ai-chat", fallback?: string) {
     const question = userText.trim();
     if (!question || loading) return;
@@ -228,6 +258,7 @@ Upload the tender document (or other working files) if you want the AI to analyz
     const prior = messages;
     const history = prior.slice(-12).map((m) => ({ role: m.role, content: m.content }));
     const userMsg: ChatMessage = { id: newMessageId(), role: "user", content: question };
+    stickToBottom.current = true;
     setMessages([...prior, userMsg]);
     setLoading(true);
     setStatusMessage("");
@@ -275,6 +306,7 @@ Upload the tender document (or other working files) if you want the AI to analyz
     if (!hasUploads) return;
     const question = "Check my uploaded documents against this tender pack.";
     const prior = messages;
+    stickToBottom.current = true;
     setMessages([...prior, { id: newMessageId(), role: "user", content: question }]);
     setLoading(true);
     setStatusMessage("");
@@ -333,7 +365,6 @@ Upload the tender document (or other working files) if you want the AI to analyz
     {
       id: "needed",
       title: "Documents Needed",
-      desc: "See what the tender pack usually asks for. Company tax, SSNIT, and financials are assumed ready.",
       icon: ClipboardList,
       locked: false,
       onClick: listNeededDocs,
@@ -341,7 +372,6 @@ Upload the tender document (or other working files) if you want the AI to analyz
     {
       id: "explain",
       title: "Explain This Tender",
-      desc: "Plain-language summary of the opportunity and typical requirements.",
       icon: Lightbulb,
       locked: false,
       onClick: explain,
@@ -349,226 +379,221 @@ Upload the tender document (or other working files) if you want the AI to analyz
     {
       id: "check",
       title: "Check My Documents",
-      desc: "Analyze tender or other files you uploaded — not company registration, tax, or financials.",
       icon: FolderCog,
       locked: !hasUploads,
       onClick: checkDocs,
     },
     {
       id: "missing",
-      title: "Find Missing Documents",
-      desc: "Spot gaps in the tender pack you uploaded.",
+      title: "Find Missing",
       icon: FileSearch,
       locked: !hasUploads,
       onClick: checkDocs,
     },
   ];
 
+  function onTenderChange(id: string) {
+    setTenderId(id);
+    const t = tenders.find((x) => x.id === id);
+    setGhanepsUrl(
+      t ? ghanepsTenderUrl({ source_url: t.source_url, ghaneps_id: t.ghaneps_id }) : null,
+    );
+  }
+
   return (
-    <AppShell title="Tender Intelligence">
-      <div className="mb-6">
-        <div className="mb-2 flex items-center gap-2">
-          <Bot className="h-6 w-6 text-[#006a3f]" aria-hidden />
-          <h2 className="text-2xl font-bold text-[#131e17] sm:text-3xl">Tender Assistant</h2>
-        </div>
-        <p className="max-w-3xl text-base text-[#6e7a70]">
-          We assume your company registration, tax, SSNIT, and financial statements are intact.
-          Upload only the tender pack or other working files if you want the AI to analyze them.
-        </p>
-      </div>
-
-      <div className="mb-4">
-        <label className="mb-2 block text-sm font-bold" htmlFor="tender">
-          Tender
-        </label>
-        <select
-          id="tender"
-          value={tenderId}
-          onChange={(e) => {
-            setTenderId(e.target.value);
-            const t = tenders.find((x) => x.id === e.target.value);
-            setGhanepsUrl(
-              t
-                ? ghanepsTenderUrl({ source_url: t.source_url, ghaneps_id: t.ghaneps_id })
-                : null,
-            );
-          }}
-          className="h-12 w-full max-w-2xl rounded-xl border border-[#d6dfd5] bg-white px-4"
-          disabled={!tenders.length}
-        >
-          {tenders.length ? (
-            tenders.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.title}
-              </option>
-            ))
-          ) : (
-            <option value="">No open tenders loaded yet</option>
-          )}
-        </select>
-      </div>
-
-      <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {actions.map((a) => (
+    <AppShell title="Tender Intelligence" fill>
+      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#d6dfd5] bg-white shadow-[0_2px_4px_rgba(32,43,36,0.04)]">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#d6dfd5] bg-white px-3 py-2 sm:gap-3 sm:px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Bot className="h-5 w-5 shrink-0 text-[#006a3f]" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-[#006a3f]">AI response</p>
+              <label className="sr-only" htmlFor="tender">
+                Tender to discuss
+              </label>
+              <select
+                id="tender"
+                value={tenderId}
+                onChange={(e) => onTenderChange(e.target.value)}
+                className="h-10 w-full max-w-xl truncate rounded-lg border border-[#d6dfd5] bg-[#f8faf8] px-3 text-sm font-semibold text-[#131e17]"
+                disabled={!tenders.length}
+              >
+                {tenders.length ? (
+                  tenders.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No open tenders loaded yet</option>
+                )}
+              </select>
+            </div>
+          </div>
           <button
-            key={a.id}
             type="button"
-            disabled={loading || a.locked || !tender}
-            onClick={a.onClick}
-            className={`relative overflow-hidden rounded-2xl border p-5 text-left shadow-[0_2px_4px_rgba(32,43,36,0.04)] ${
-              a.locked
-                ? "cursor-not-allowed border-[#d6dfd5] bg-[#f3f6f3]"
-                : "border-[#d6dfd5] bg-white hover:border-[#006a3f]"
-            }`}
+            onClick={startNewChat}
+            disabled={!hasChat && !draft}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#d6dfd5] bg-white px-3 text-sm font-bold text-[#006a3f] hover:border-[#006a3f] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {a.locked ? (
-              <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/70 backdrop-blur-[2px]">
-                <Lock className="mb-2 h-5 w-5 text-[#6e7a70]" aria-hidden />
-                <p className="px-3 text-center text-xs font-bold text-[#3e4941]">
-                  Upload a document to unlock
+            <SquarePen className="h-4 w-4" aria-hidden />
+            New chat
+          </button>
+        </div>
+
+        <div className="relative min-h-0 flex-1">
+          <div
+            ref={threadRef}
+            onScroll={onThreadScroll}
+            className="absolute inset-0 space-y-3 overflow-y-auto bg-[#f8faf8] px-4 py-4"
+          >
+            {displayMessages.map((m) => (
+              <div
+                key={m.id}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[min(100%,52rem)] rounded-2xl px-4 py-3 ${
+                    m.role === "user"
+                      ? "rounded-br-md bg-[#006a3f] text-white"
+                      : "rounded-bl-md border border-[#b4f0cb] bg-[#eaf7ec] text-[#131e17]"
+                  }`}
+                >
+                  {m.role === "user" ? (
+                    <p className="whitespace-pre-wrap text-[15px] leading-7">{m.content}</p>
+                  ) : (
+                    <ChatMarkdown content={m.content} />
+                  )}
+                </div>
+              </div>
+            ))}
+            {loading ? (
+              <div className="flex justify-start">
+                <p className="rounded-2xl rounded-bl-md border border-[#b4f0cb] bg-[#eaf7ec] px-4 py-3 text-sm font-medium text-[#3e4941]">
+                  Thinking…
                 </p>
               </div>
             ) : null}
-            <a.icon
-              className={`mb-3 h-6 w-6 ${a.locked ? "text-[#9aa69d]" : "text-[#006a3f]"}`}
-              aria-hidden
-            />
-            <p className={`font-bold ${a.locked ? "text-[#6e7a70]" : "text-[#131e17]"}`}>
-              {a.title}
-            </p>
-            <p className="mt-2 text-sm text-[#6e7a70]">{a.desc}</p>
-          </button>
-        ))}
-      </div>
+            {!hasChat && !hasUploads ? (
+              <div className="rounded-xl border border-dashed border-[#d6dfd5] bg-white px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-[#6e7a70]">
+                  Typical document checklist
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {TYPICAL_TENDER_DOCUMENTS.map((text) => (
+                    <li key={text} className="flex items-start gap-2 text-sm text-[#3e4941]">
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#006a3f]" aria-hidden />
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
 
-      <section className="flex min-h-[560px] flex-col rounded-2xl border border-[#d6dfd5] bg-white shadow-[0_2px_4px_rgba(32,43,36,0.04)]">
-        <div className="border-b border-[#d6dfd5] px-5 py-4">
-          <p className="text-sm font-bold text-[#006a3f]">AI response</p>
-          <h3 className="mt-1 text-lg font-bold text-[#131e17]">
-            Guidance: {tender?.title ?? "Selected tender"}
-          </h3>
+          {showJump ? (
+            <button
+              type="button"
+              onClick={scrollThreadToBottom}
+              className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-[#d6dfd5] bg-white px-3 py-2 text-xs font-bold text-[#006a3f] shadow-md"
+            >
+              <ChevronDown className="h-4 w-4" aria-hidden />
+              Jump to latest
+            </button>
+          ) : null}
         </div>
 
-        <div
-          ref={threadRef}
-          className="min-h-[420px] flex-1 space-y-3 overflow-y-auto bg-[#f8faf8] px-4 py-4 sm:px-5"
-        >
-          {displayMessages.map((m) => (
-            <div
-              key={m.id}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 sm:text-base ${
-                  m.role === "user"
-                    ? "rounded-br-md bg-[#006a3f] text-white"
-                    : "rounded-bl-md border border-[#b4f0cb] bg-[#eaf7ec] text-[#131e17]"
+        <div className="shrink-0 border-t border-[#d6dfd5] bg-white">
+          <div className="flex gap-2 overflow-x-auto px-3 pt-3 sm:px-4">
+            {actions.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                disabled={loading || a.locked || !tender}
+                onClick={a.onClick}
+                title={a.locked ? "Upload a document to unlock" : a.title}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold sm:text-sm ${
+                  a.locked
+                    ? "cursor-not-allowed border-[#d6dfd5] bg-[#f3f6f3] text-[#9aa69d]"
+                    : "border-[#d6dfd5] bg-[#eaf7ec] text-[#006a3f] hover:border-[#006a3f]"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{m.content}</p>
-              </div>
-            </div>
-          ))}
-          {loading ? (
-            <div className="flex justify-start">
-              <p className="rounded-2xl rounded-bl-md border border-[#b4f0cb] bg-[#eaf7ec] px-4 py-3 text-sm font-medium text-[#3e4941]">
-                Thinking…
-              </p>
+                {a.locked ? <Lock className="h-3.5 w-3.5" aria-hidden /> : <a.icon className="h-3.5 w-3.5" aria-hidden />}
+                {a.title}
+              </button>
+            ))}
+          </div>
+
+          {readyPercent !== null ? (
+            <p className="px-4 pt-2 text-sm font-bold text-[#006a3f]">{readyPercent}% ready</p>
+          ) : null}
+          {statusMessage ? (
+            <p className="px-4 pt-2 text-sm font-medium text-[#3e4941]">{statusMessage}</p>
+          ) : null}
+          {lastUploadName || hasUploads ? (
+            <div className="flex flex-wrap items-center gap-2 px-4 pt-2">
+              {lastUploadName ? (
+                <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#eaf7ec] px-3 py-1 text-xs font-semibold text-[#006a3f]">
+                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  <span className="truncate">{uploading ? "Uploading…" : lastUploadName}</span>
+                </span>
+              ) : null}
+              {hasUploads ? (
+                <span className="text-xs text-[#6e7a70]">
+                  {docs.length} file{docs.length === 1 ? "" : "s"} ready
+                </span>
+              ) : null}
             </div>
           ) : null}
-        </div>
 
-        {!hasUploads ? (
-          <div className="border-t border-[#d6dfd5] bg-white px-5 py-3">
-            <p className="text-xs font-bold uppercase tracking-wide text-[#6e7a70]">
-              Typical document checklist
-            </p>
-            <ul className="mt-2 space-y-1">
-              {TYPICAL_TENDER_DOCUMENTS.map((text) => (
-                <li key={text} className="flex items-start gap-2 text-sm text-[#3e4941]">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#006a3f]" aria-hidden />
-                  {text}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {readyPercent !== null ? (
-          <p className="border-t border-[#d6dfd5] px-5 py-3 text-lg font-bold text-[#006a3f]">
-            {readyPercent}% ready
-          </p>
-        ) : null}
-
-        {statusMessage ? (
-          <p className="border-t border-[#d6dfd5] px-5 py-2 text-sm font-medium text-[#3e4941]">
-            {statusMessage}
-          </p>
-        ) : null}
-
-        {lastUploadName || hasUploads ? (
-          <div className="flex flex-wrap items-center gap-2 border-t border-[#d6dfd5] px-5 py-2">
-            {lastUploadName ? (
-              <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#eaf7ec] px-3 py-1 text-xs font-semibold text-[#006a3f]">
-                <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                <span className="truncate">{uploading ? "Uploading…" : lastUploadName}</span>
-              </span>
-            ) : null}
-            {hasUploads ? (
-              <span className="text-xs text-[#6e7a70]">
-                {docs.length} file{docs.length === 1 ? "" : "s"} ready for analysis
-              </span>
-            ) : null}
-          </div>
-        ) : null}
-
-        <form onSubmit={onAsk} className="flex items-center gap-2 border-t border-[#d6dfd5] p-3 sm:p-4">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Ask about this tender pack or an uploaded PDF…"
-            className="h-12 min-w-0 flex-1 rounded-xl border border-[#d6dfd5] px-4"
-            disabled={loading}
-            aria-label="Message"
-          />
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept={DOC_ACCEPT}
-            onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || loading}
-            className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#d6dfd5] text-[#006a3f] hover:bg-[#eaf7ec] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Upload a document"
-            title="Upload a document"
-          >
-            <Paperclip className="h-5 w-5" aria-hidden />
-          </button>
-          <button
-            type="submit"
-            disabled={!canAsk}
-            className="h-12 shrink-0 rounded-xl bg-[#006a3f] px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-[#9aa69d] disabled:opacity-80"
-          >
-            Ask
-          </button>
-        </form>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#d6dfd5] px-4 py-3">
-          <Link href="/documents" className="text-sm font-bold text-[#006a3f]">
-            My Documents →
-          </Link>
-          {ghanepsUrl ? (
-            <OpenOnGhaneps
-              sourceUrl={ghanepsUrl}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#006a3f] px-5 text-sm font-bold text-white"
+          <form onSubmit={onAsk} className="flex items-end gap-2 p-3 sm:px-4">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Ask about this tender pack or an uploaded PDF…"
+              className="h-12 min-w-0 flex-1 rounded-xl border border-[#d6dfd5] px-4"
+              disabled={loading}
+              aria-label="Message"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept={DOC_ACCEPT}
+              onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || loading}
+              className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#d6dfd5] text-[#006a3f] hover:bg-[#eaf7ec] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Upload a document"
+              title="Upload a document"
             >
-              Continue on GHANEPS
-            </OpenOnGhaneps>
-          ) : null}
+              <Paperclip className="h-5 w-5" aria-hidden />
+            </button>
+            <button
+              type="submit"
+              disabled={!canAsk}
+              className="h-12 shrink-0 rounded-xl bg-[#006a3f] px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-[#9aa69d] disabled:opacity-80"
+            >
+              Ask
+            </button>
+          </form>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 pb-3">
+            <Link href="/documents" className="text-sm font-bold text-[#006a3f]">
+              My Documents →
+            </Link>
+            {ghanepsUrl ? (
+              <OpenOnGhaneps
+                sourceUrl={ghanepsUrl}
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#006a3f] px-4 text-sm font-bold text-white"
+              >
+                Continue on GHANEPS
+              </OpenOnGhaneps>
+            ) : null}
+          </div>
         </div>
       </section>
     </AppShell>
@@ -579,7 +604,7 @@ export default function AssistantPage() {
   return (
     <Suspense
       fallback={
-        <AppShell title="Tender Intelligence">
+        <AppShell title="Tender Intelligence" fill>
           <p className="text-[#6e7a70]">Loading assistant…</p>
         </AppShell>
       }

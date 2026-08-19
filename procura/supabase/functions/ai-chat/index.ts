@@ -244,6 +244,8 @@ GHANEPS URL: ${tender.source_url}`
     const system = `${prompt?.prompt_text ??
       "You help Ghana suppliers prepare for public tenders. Assume company registration, GRA tax clearance, SSNIT clearance, and financial statements are already in order — never ask the user to upload those. Only analyze tender documents and other files they share. Point them to GHANEPS for official bidding."}
 
+Format every answer in clear Markdown so it is easy to read on a phone: short headings, bullet lists, and GitHub-flavored tables (header row, separator row, then data rows). Do not dump a table as a single wrapped paragraph.
+
 Current tender:
 ${tenderBlock}
 

@@ -9,11 +9,13 @@ export function AppShell({
   title = "Tender Intelligence",
   actions,
   searchPlaceholder = "Search tenders...",
+  fill = false,
 }: {
   children: ReactNode;
   title?: string;
   actions?: ReactNode;
   searchPlaceholder?: string;
+  fill?: boolean;
 }) {
   return (
     <div className="flex h-dvh overflow-hidden bg-[#f0fdf1]">
@@ -22,9 +24,23 @@ export function AppShell({
         <div className="shrink-0">
           <AppHeader title={title} actions={actions} searchPlaceholder={searchPlaceholder} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <main className="px-4 py-5 sm:py-6 lg:px-8 lg:py-8">{children}</main>
-          <Footer />
+        <div
+          className={
+            fill
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+              : "min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          }
+        >
+          <main
+            className={
+              fill
+                ? "flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8"
+                : "px-4 py-5 sm:py-6 lg:px-8 lg:py-8"
+            }
+          >
+            {children}
+          </main>
+          {fill ? null : <Footer />}
         </div>
       </div>
       <AiFab />
