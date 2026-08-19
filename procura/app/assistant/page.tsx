@@ -103,18 +103,18 @@ function AssistantInner() {
       list.push(doc);
       groups.set(key, list);
     }
-    return DOCUMENT_TYPE_OPTIONS
-      .map((opt) => ({
-        value: opt.value,
-        label: opt.label,
-        files: groups.get(opt.value) ?? [],
-      }))
-      .filter((group) => group.files.length > 0)
-      .concat(
-        [...groups.entries()]
-          .filter(([value]) => !DOCUMENT_TYPE_OPTIONS.some((opt) => opt.value === value))
-          .map(([value, files]) => ({ value, label: value, files })),
-      );
+
+    const known = DOCUMENT_TYPE_OPTIONS.map((opt) => ({
+      value: opt.value as string,
+      label: opt.label as string,
+      files: groups.get(opt.value) ?? [],
+    })).filter((group) => group.files.length > 0);
+
+    const extra = [...groups.entries()]
+      .filter(([value]) => !DOCUMENT_TYPE_OPTIONS.some((opt) => opt.value === value))
+      .map(([value, files]) => ({ value, label: value, files }));
+
+    return [...known, ...extra];
   }, [docs]);
   const hasUploads = docs.length > 0;
   const canAsk = Boolean(draft.trim()) && !loading;
