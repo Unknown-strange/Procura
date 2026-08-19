@@ -44,6 +44,7 @@ import { ghanepsTenderUrl } from "@/lib/ghaneps";
 import { formatRelativeTime } from "@/lib/utils";
 import {
   DOC_ACCEPT,
+  DOCUMENT_TYPE_OPTIONS,
   TYPICAL_TENDER_DOCUMENTS,
   type UserDocument,
   documentsPromptBlock,
@@ -94,6 +95,27 @@ function AssistantInner() {
   const stickToBottom = useRef(true);
   const activeChatIdRef = useRef<string | null>(null);
 
+  const docsByType = useMemo(() => {
+    const groups = new Map<string, UserDocument[]>();
+    for (const doc of docs) {
+      const key = doc.document_type || "other";
+      const list = groups.get(key) ?? [];
+      list.push(doc);
+      groups.set(key, list);
+    }
+    return DOCUMENT_TYPE_OPTIONS
+      .map((opt) => ({
+        value: opt.value,
+        label: opt.label,
+        files: groups.get(opt.value) ?? [],
+      }))
+      .filter((group) => group.files.length > 0)
+      .concat(
+        [...groups.entries()]
+          .filter(([value]) => !DOCUMENT_TYPE_OPTIONS.some((opt) => opt.value === value))
+          .map(([value, files]) => ({ value, label: value, files })),
+      );
+  }, [docs]);
   const hasUploads = docs.length > 0;
   const canAsk = Boolean(draft.trim()) && !loading;
   const hasChat = messages.length > 0;
@@ -386,16 +408,25 @@ Upload the tender document (or other working files) if you want the AI to analyz
     );
   }
 
+  function toggleDocType(fileIds: string[]) {
+    setSelectedDocIds((prev) => {
+      const allOn = fileIds.every((id) => prev.includes(id));
+      if (allOn) return prev.filter((id) => !fileIds.includes(id));
+      return Array.from(new Set([...prev, ...fileIds]));
+    });
+  }
+
   async function runSelectedDocCheck() {
     const chosen = docs.filter((d) => selectedDocIds.includes(d.id));
     if (!chosen.length || !pickerMode) return;
     const mode = pickerMode;
     setPickerMode(null);
+    const types = Array.from(new Set(chosen.map((d) => d.document_type))).join(", ");
     const names = chosen.map((d) => `“${d.title}”`).join(", ");
     const question =
       mode === "missing"
-        ? `Find missing items for this tender using only these files: ${names}. Ignore any other uploads.`
-        : `Check these files against this tender pack: ${names}. Ignore any other uploads.`;
+        ? `Find missing items for this tender using only these document types (${types}): ${names}. Ignore any other uploads.`
+        : `Check these document types (${types}) against this tender pack: ${names}. Ignore any other uploads.`;
     await sendChat(question, "ai-chat", undefined, chosen);
     const remote = await callAi("check-user-documents", {
       tender_id: tenderId,
@@ -709,15 +740,16 @@ Upload the tender document (or other working files) if you want the AI to analyz
         <div className="shrink-0 border-t border-[#d6dfd5] bg-white">
           {pickerMode ? (
             <div className="border-b border-[#d6dfd5] px-3 py-3 sm:px-4">
-              <div className="mb-2 flex items-start justify-between gap-2">
+              <div className="mb-3 flex items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-bold text-[#131e17]">
                     {pickerMode === "missing"
-                      ? "Which files should we search for gaps?"
-                      : "Which files should the AI check for this tender?"}
+                      ? "Select the document types to search for gaps"
+                      : "Select the document types to check"}
                   </p>
                   <p className="text-xs text-[#6e7a70]">
-                    Tick only the documents that belong to this procurement.
+                    These are the types you have uploaded. Choose them first, then we will talk about
+                    those files only.
                   </p>
                 </div>
                 <button
@@ -729,35 +761,54 @@ Upload the tender document (or other working files) if you want the AI to analyz
                   <X className="h-4 w-4" aria-hidden />
                 </button>
               </div>
-              <ul className="max-h-36 space-y-1 overflow-y-auto">
-                {docs.map((d) => {
-                  const checked = selectedDocIds.includes(d.id);
+              <div className="max-h-48 space-y-3 overflow-y-auto">
+                {docsByType.map((group) => {
+                  const fileIds = group.files.map((f) => f.id);
+                  const selectedCount = fileIds.filter((id) => selectedDocIds.includes(id)).length;
+                  const allOn = selectedCount === fileIds.length && fileIds.length > 0;
                   return (
-                    <li key={d.id}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#f8faf8]">
+                    <div key={group.value} className="rounded-xl border border-[#d6dfd5] bg-[#f8faf8] p-2">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5">
                         <input
                           type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleDoc(d.id)}
+                          checked={allOn}
+                          onChange={() => toggleDocType(fileIds)}
                           className="h-4 w-4 accent-[#006a3f]"
                         />
-                        <FileText className="h-4 w-4 shrink-0 text-[#006a3f]" aria-hidden />
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#131e17]">
-                          {d.title}
+                        <span className="flex-1 text-sm font-bold text-[#131e17]">{group.label}</span>
+                        <span className="text-xs font-semibold text-[#6e7a70]">
+                          {group.files.length} file{group.files.length === 1 ? "" : "s"}
                         </span>
-                        <span className="shrink-0 text-xs text-[#6e7a70]">{d.document_type}</span>
                       </label>
-                    </li>
+                      <ul className="mt-1 space-y-0.5 pl-7">
+                        {group.files.map((d) => (
+                          <li key={d.id}>
+                            <label className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 hover:bg-white">
+                              <input
+                                type="checkbox"
+                                checked={selectedDocIds.includes(d.id)}
+                                onChange={() => toggleDoc(d.id)}
+                                className="h-3.5 w-3.5 accent-[#006a3f]"
+                              />
+                              <FileText className="h-3.5 w-3.5 shrink-0 text-[#006a3f]" aria-hidden />
+                              <span className="min-w-0 flex-1 truncate text-sm text-[#3e4941]">
+                                {d.title}
+                              </span>
+                            </label>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   );
                 })}
-              </ul>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedDocIds(docs.map((d) => d.id))}
                   className="text-xs font-bold text-[#006a3f]"
                 >
-                  Select all
+                  Select all types
                 </button>
                 <button
                   type="button"
@@ -765,7 +816,7 @@ Upload the tender document (or other working files) if you want the AI to analyz
                   onClick={() => void runSelectedDocCheck()}
                   className="ml-auto h-10 rounded-xl bg-[#006a3f] px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-[#9aa69d]"
                 >
-                  {pickerMode === "missing" ? "Find gaps in selected" : "Check selected"}
+                  {pickerMode === "missing" ? "Find gaps in selected types" : "Check selected types"}
                 </button>
               </div>
             </div>
