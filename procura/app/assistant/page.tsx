@@ -142,6 +142,17 @@ function AssistantInner() {
     return res.json();
   }
 
+  function answerFromRemote(
+    remote: { content?: string; error?: string } | null,
+    fallback: string,
+  ) {
+    if (remote?.error) {
+      return `Could not get an AI answer: ${remote.error}`;
+    }
+    if (remote?.content?.trim()) return remote.content;
+    return fallback;
+  }
+
   function resolveGhaneps(
     remoteUrl?: string | null,
     fallback?: { source_url?: string | null; ghaneps_id?: string | null } | null,
@@ -177,7 +188,7 @@ Upload the tender document (or other working files) if you want the AI to analyz
       question,
       documents: [],
     });
-    setAnswer(remote?.content ?? neededDocsFallback());
+    setAnswer(answerFromRemote(remote, neededDocsFallback()));
     setGhanepsUrl(resolveGhaneps(remote?.ghaneps_url, tender));
     setReadyPercent(null);
     setStatusMessage("");
@@ -203,8 +214,10 @@ Upload the tender document (or other working files) if you want the AI to analyz
         : [],
     });
     setAnswer(
-      remote?.content ??
+      answerFromRemote(
+        remote,
         `${tender?.title} is a ${tender?.procurement_type?.toLowerCase()} opportunity from ${tender?.procuring_entity_name}. ${neededDocsFallback()}`,
+      ),
     );
     setGhanepsUrl(resolveGhaneps(remote?.ghaneps_url, tender));
     setStatusMessage("");
@@ -261,10 +274,12 @@ Upload the tender document (or other working files) if you want the AI to analyz
         : [],
     });
     setAnswer(
-      remote?.content ??
-        (hasUploads
+      answerFromRemote(
+        remote,
+        hasUploads
           ? `About “${question}”:\n\n${documentsPromptBlock(docs)}\n\nFor binding rules, use GHANEPS.`
-          : `About “${question}”:\n\n${neededDocsFallback()}`),
+          : `About “${question}”:\n\n${neededDocsFallback()}`,
+      ),
     );
     setGhanepsUrl(resolveGhaneps(remote?.ghaneps_url, tender));
     setStatusMessage("");

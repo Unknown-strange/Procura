@@ -37,11 +37,11 @@ async function getActivePrompt(
 }
 
 async function callGroq(system: string, user: string) {
-  const key = Deno.env.get("GROQ_API_KEY");
+  const key = Deno.env.get("GROQ_API_KEY")?.trim().replace(/^["']+|["']+$/g, "");
   if (!key) {
     return {
       content:
-        "AI is not configured yet (missing GROQ_API_KEY). Assume company registration, tax, SSNIT, and financials are intact. Analyze only the tender pack or other files the user uploaded. Official bidding stays on GHANEPS.",
+        "AI is not configured yet (missing GROQ_API_KEY on the Edge Function). Add it in Supabase → Edge Functions → Secrets, then try again.",
       input_tokens: 0,
       output_tokens: 0,
     };
@@ -60,12 +60,22 @@ async function callGroq(system: string, user: string) {
         { role: "user", content: user },
       ],
       temperature: 0.2,
+      max_tokens: 1024,
     }),
   });
 
   const json = await res.json();
+  const content = json.choices?.[0]?.message?.content?.trim();
+  if (!content) {
+    const groqError =
+      (typeof json.error === "string" && json.error) ||
+      (typeof json.error?.message === "string" && json.error.message) ||
+      `Groq returned HTTP ${res.status} with no answer. Check GROQ_API_KEY in Edge Function secrets.`;
+    throw new Error(groqError);
+  }
+
   return {
-    content: json.choices?.[0]?.message?.content ?? "No response",
+    content,
     input_tokens: json.usage?.prompt_tokens ?? 0,
     output_tokens: json.usage?.completion_tokens ?? 0,
   };
