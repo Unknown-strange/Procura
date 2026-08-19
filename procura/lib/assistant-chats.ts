@@ -51,6 +51,20 @@ export function deleteAssistantChat(id: string): AssistantChat[] {
 }
 
 export function chatTitleFromTender(title: string | null | undefined) {
-  const trimmed = title?.trim();
-  return trimmed || "Untitled procurement";
+  return shortChatTitle(title);
+}
+
+/** Short label for the history list, still identifiable from the tender name. */
+export function shortChatTitle(title: string | null | undefined) {
+  let text = title?.trim() || "Untitled procurement";
+  text = text.replace(
+    /^(procurement\s+and\s+supply\s+of|procurement\s+and\s+installation\s+of|procurement\s+of|supply\s+and\s+installation\s+of|supply\s+of|invitation\s+for\s+|request\s+for\s+)\s*/i,
+    "",
+  );
+  text = text.replace(/\s+/g, " ").trim();
+  if (!text) text = title?.trim() || "Untitled procurement";
+  if (text.length > 32) {
+    text = `${text.slice(0, 29).trimEnd()}…`;
+  }
+  return text;
 }

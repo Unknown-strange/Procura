@@ -25,6 +25,7 @@ import {
   Paperclip,
   SquarePen,
   Trash2,
+  X,
 } from "lucide-react";
 import { ChatMarkdown } from "@/components/assistant/chat-markdown";
 import { AppShell } from "@/components/layout/app-shell";
@@ -33,6 +34,7 @@ import {
   chatTitleFromTender,
   deleteAssistantChat,
   loadAssistantChats,
+  shortChatTitle,
   upsertAssistantChat,
   type AssistantChat,
   type AssistantChatMessage,
@@ -85,6 +87,8 @@ function AssistantInner() {
   const [chats, setChats] = useState<AssistantChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState<"check" | "missing" | null>(null);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const threadRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stickToBottom = useRef(true);
@@ -232,9 +236,10 @@ function AssistantInner() {
     });
   }
 
-  function documentPayload() {
-    if (!hasUploads) return [];
-    return docs.map((d) => ({
+  function documentPayload(selected?: UserDocument[]) {
+    const source = selected ?? docs;
+    if (!source.length) return [];
+    return source.map((d) => ({
       id: d.id,
       title: d.title,
       document_type: d.document_type,
@@ -308,7 +313,12 @@ Upload the tender document (or other working files) if you want the AI to analyz
     if (activeChatIdRef.current === id) startNewChat();
   }
 
-  async function sendChat(userText: string, command = "ai-chat", fallback?: string) {
+  async function sendChat(
+    userText: string,
+    command = "ai-chat",
+    fallback?: string,
+    selectedDocs?: UserDocument[],
+  ) {
     const question = userText.trim();
     if (!question || loading) return;
 
@@ -327,7 +337,7 @@ Upload the tender document (or other working files) if you want the AI to analyz
         command,
         question,
         history,
-        documents: documentPayload(),
+        documents: documentPayload(selectedDocs),
       });
       const reply = answerFromRemote(
         remote,
@@ -364,40 +374,34 @@ Upload the tender document (or other working files) if you want the AI to analyz
     );
   }
 
-  async function checkDocs() {
+  function openDocPicker(mode: "check" | "missing") {
     if (!hasUploads) return;
-    const question = "Check my uploaded documents against this tender pack.";
-    const prior = messages;
-    stickToBottom.current = true;
-    const nextMessages = [...prior, { id: newMessageId(), role: "user" as const, content: question }];
-    setMessages(nextMessages);
-    persistCurrent(nextMessages);
-    setLoading(true);
-    setStatusMessage("");
-    try {
-      const remote = await callAi("check-user-documents", { tender_id: tenderId });
-      let reply: string;
-      if (remote?.ready_percent != null) {
-        setReadyPercent(remote.ready_percent);
-        reply =
-          remote.message ??
-          `Checked your ${docs.length} uploaded file(s) against common requirements.`;
-      } else {
-        const withText = docs.filter((d) => d.extracted_text).length;
-        setReadyPercent(Math.min(95, 45 + docs.length * 10 + withText * 5));
-        reply = `You uploaded ${docs.length} document(s)${withText ? ` (${withText} with extracted PDF text for analysis)` : ""}:\n${docs
-          .map((d) => `• ${d.title} (${d.document_type})`)
-          .join("\n")}\n\nCompare these against the checklist from “Documents Needed”, then continue on GHANEPS for the official submission.`;
-      }
-      setMessages((prev) => {
-        const next = [...prev, { id: newMessageId(), role: "assistant" as const, content: reply }];
-        persistCurrent(next);
-        return next;
-      });
-      setGhanepsUrl(resolveGhaneps(remote?.ghaneps_url, tender));
-    } finally {
-      setLoading(false);
-    }
+    setPickerMode(mode);
+    setSelectedDocIds([]);
+  }
+
+  function toggleDoc(id: string) {
+    setSelectedDocIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  }
+
+  async function runSelectedDocCheck() {
+    const chosen = docs.filter((d) => selectedDocIds.includes(d.id));
+    if (!chosen.length || !pickerMode) return;
+    const mode = pickerMode;
+    setPickerMode(null);
+    const names = chosen.map((d) => `“${d.title}”`).join(", ");
+    const question =
+      mode === "missing"
+        ? `Find missing items for this tender using only these files: ${names}. Ignore any other uploads.`
+        : `Check these files against this tender pack: ${names}. Ignore any other uploads.`;
+    await sendChat(question, "ai-chat", undefined, chosen);
+    const remote = await callAi("check-user-documents", {
+      tender_id: tenderId,
+      document_ids: chosen.map((d) => d.id),
+    });
+    if (remote?.ready_percent != null) setReadyPercent(remote.ready_percent);
   }
 
   async function onAsk(e: FormEvent<HTMLFormElement>) {
@@ -449,14 +453,14 @@ Upload the tender document (or other working files) if you want the AI to analyz
       title: "Check My Documents",
       icon: FolderCog,
       locked: !hasUploads,
-      onClick: checkDocs,
+      onClick: () => openDocPicker("check"),
     },
     {
       id: "missing",
       title: "Find Missing",
       icon: FileSearch,
       locked: !hasUploads,
-      onClick: checkDocs,
+      onClick: () => openDocPicker("missing"),
     },
   ];
 
@@ -511,7 +515,9 @@ Upload the tender document (or other working files) if you want the AI to analyz
                           onClick={() => openSavedChat(chat)}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <p className="truncate text-sm font-bold text-[#131e17]">{chat.title}</p>
+                          <p className="truncate text-sm font-bold text-[#131e17]" title={chat.title}>
+                            {shortChatTitle(chat.title)}
+                          </p>
                           <p className="mt-0.5 truncate text-xs text-[#6e7a70]">
                             {formatRelativeTime(chat.updatedAt)}
                           </p>
@@ -568,7 +574,9 @@ Upload the tender document (or other working files) if you want the AI to analyz
                             chat.id === activeChatId ? "bg-[#eaf7ec]" : "hover:bg-[#f8faf8]"
                           }`}
                         >
-                          <p className="truncate text-sm font-bold text-[#131e17]">{chat.title}</p>
+                          <p className="truncate text-sm font-bold text-[#131e17]" title={chat.title}>
+                            {shortChatTitle(chat.title)}
+                          </p>
                           <p className="mt-0.5 text-xs text-[#6e7a70]">
                             {formatRelativeTime(chat.updatedAt)}
                           </p>
@@ -699,6 +707,70 @@ Upload the tender document (or other working files) if you want the AI to analyz
         </div>
 
         <div className="shrink-0 border-t border-[#d6dfd5] bg-white">
+          {pickerMode ? (
+            <div className="border-b border-[#d6dfd5] px-3 py-3 sm:px-4">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-bold text-[#131e17]">
+                    {pickerMode === "missing"
+                      ? "Which files should we search for gaps?"
+                      : "Which files should the AI check for this tender?"}
+                  </p>
+                  <p className="text-xs text-[#6e7a70]">
+                    Tick only the documents that belong to this procurement.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPickerMode(null)}
+                  className="rounded-lg p-1 text-[#6e7a70] hover:bg-[#f3f6f3]"
+                  aria-label="Close file picker"
+                >
+                  <X className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+              <ul className="max-h-36 space-y-1 overflow-y-auto">
+                {docs.map((d) => {
+                  const checked = selectedDocIds.includes(d.id);
+                  return (
+                    <li key={d.id}>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-[#f8faf8]">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleDoc(d.id)}
+                          className="h-4 w-4 accent-[#006a3f]"
+                        />
+                        <FileText className="h-4 w-4 shrink-0 text-[#006a3f]" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#131e17]">
+                          {d.title}
+                        </span>
+                        <span className="shrink-0 text-xs text-[#6e7a70]">{d.document_type}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDocIds(docs.map((d) => d.id))}
+                  className="text-xs font-bold text-[#006a3f]"
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedDocIds.length || loading}
+                  onClick={() => void runSelectedDocCheck()}
+                  className="ml-auto h-10 rounded-xl bg-[#006a3f] px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-[#9aa69d]"
+                >
+                  {pickerMode === "missing" ? "Find gaps in selected" : "Check selected"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex gap-2 overflow-x-auto px-3 pt-3 sm:px-4">
             {actions.map((a) => (
               <button

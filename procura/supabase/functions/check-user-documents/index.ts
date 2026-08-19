@@ -34,7 +34,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { tender_id } = await req.json();
+    const { tender_id, document_ids } = await req.json();
     if (!tender_id) {
       return new Response(JSON.stringify({ error: "tender_id required" }), {
         status: 400,
@@ -67,10 +67,14 @@ serve(async (req) => {
       .eq("tender_id", tender_id)
       .order("sort_order");
 
-    const { data: docs } = await admin
+    let docsQuery = admin
       .from("user_documents")
       .select("id, title, document_type, status")
       .eq("user_id", user.id);
+    if (Array.isArray(document_ids) && document_ids.length > 0) {
+      docsQuery = docsQuery.in("id", document_ids.map(String));
+    }
+    const { data: docs } = await docsQuery;
 
     const docTypes = new Set((docs ?? []).map((d) => d.document_type.toLowerCase()));
     const docTitles = (docs ?? []).map((d) => d.title.toLowerCase()).join(" ");
@@ -144,7 +148,7 @@ serve(async (req) => {
         ok: true,
         ready_percent: readyPct,
         checks: inserted,
-        message: `Checked your uploaded tender/other files. Company tax, SSNIT, and financials are assumed in order. You are about ${readyPct}% ready on the pack we can see.`,
+        message: `Checked ${docs?.length ?? 0} selected file(s) for this tender. Company tax, SSNIT, and financials are assumed in order. You are about ${readyPct}% ready on the pack we can see.`,
         ghaneps_url: tender?.source_url,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
