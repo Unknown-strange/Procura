@@ -2,9 +2,10 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 /**
- * match-users — match tenders to users by UNSPSC interests (+ region/type fallback).
+ * match-users — match tenders to users by procurement type (and UNSPSC if set).
+ * Region is not used: GHANEPS often omits a region field.
  * Email path: send-notification uses ghaneps_url.
- * Users need at least one procurement type and region (onboarding, or a type unlocked at score 90).
+ * Users need at least one procurement type from onboarding (or a type unlocked at score 90).
  */
 
 const corsHeaders = {
@@ -34,7 +35,7 @@ serve(async (req) => {
 
   const { data: prefs } = await supabase
     .from("user_preferences")
-    .select("user_id, regions, procurement_types, email_alerts");
+    .select("user_id, procurement_types, email_alerts");
 
   const { data: interests } = await supabase
     .from("user_unspsc_interests")
@@ -50,7 +51,7 @@ serve(async (req) => {
 
   for (const pref of prefs ?? []) {
     if (pref.email_alerts === false) continue;
-    if (!pref.procurement_types?.length || !pref.regions?.length) continue;
+    if (!pref.procurement_types?.length) continue;
     const userKeys = interestByUser.get(pref.user_id) ?? new Set();
 
     for (const tender of tenders ?? []) {
@@ -60,13 +61,8 @@ serve(async (req) => {
         ),
       );
 
-      const regionOk =
-        !pref.regions?.length ||
-        !tender.region ||
-        pref.regions.includes(tender.region);
       const typeOk =
-        !pref.procurement_types?.length ||
-        !tender.procurement_type ||
+        Boolean(tender.procurement_type) &&
         pref.procurement_types.includes(tender.procurement_type);
 
       let unspscOk = true;
@@ -77,7 +73,7 @@ serve(async (req) => {
         score = unspscOk ? Math.min(0.99, 0.7 + overlap.length * 0.05) : 0;
       }
 
-      if (!regionOk || !typeOk || !unspscOk) continue;
+      if (!typeOk || !unspscOk) continue;
 
       await supabase.from("tender_matches").upsert(
         {
@@ -87,7 +83,7 @@ serve(async (req) => {
           reason:
             userKeys.size > 0
               ? "Matched your UNSPSC interests"
-              : "Matched your region/type preferences",
+              : "Matched your tender types",
         },
         { onConflict: "user_id,tender_id" },
       );

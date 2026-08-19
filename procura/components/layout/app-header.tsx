@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { Bell, CircleHelp, Search, X } from "lucide-react";
+import { UserAvatar } from "@/components/layout/user-avatar";
 
 export function AppHeader({
   title,
@@ -56,13 +57,7 @@ export function AppHeader({
           >
             <CircleHelp className="h-5 w-5" />
           </Link>
-          <Link
-            href="/settings"
-            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#31694c] text-sm font-bold text-white sm:h-11 sm:w-11"
-            aria-label="User profile"
-          >
-            K
-          </Link>
+          <UserAvatar />
         </div>
       </div>
 

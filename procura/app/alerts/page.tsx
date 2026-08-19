@@ -76,7 +76,7 @@ export default async function AlertsPage() {
           </div>
         ) : (
           <p className="rounded-2xl border border-dashed border-[#d6dfd5] bg-white px-5 py-8 text-base text-[#6e7a70]">
-            No alerts yet. When a new GHANEPS tender matches the types and regions you chose, it
+            No alerts yet. When a new GHANEPS tender matches the types you chose, it
             will show up here and in your email.
           </p>
         )}

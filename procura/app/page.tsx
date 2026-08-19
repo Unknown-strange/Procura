@@ -151,8 +151,8 @@ export default async function LandingPage() {
                   Active
                 </span>
               </div>
-              <p className="text-sm font-bold text-[#0f1a14]">Works tenders in your region</p>
-              <p className="mt-1 text-xs text-[#6e7a70]">Matched to the types and regions you choose</p>
+              <p className="text-sm font-bold text-[#0f1a14]">Works tenders that match your types</p>
+              <p className="mt-1 text-xs text-[#6e7a70]">Matched to the procurement types you choose</p>
             </div>
           </article>
 
@@ -162,15 +162,14 @@ export default async function LandingPage() {
             </div>
             <h3 className="mt-5 text-xl font-bold text-[#0f1a14]">Personalized Alerts</h3>
             <p className="mt-3 text-base leading-7 text-[#5a6660]">
-              Never miss a critical deadline. Set granular alerts for specific sectors, regions, or
-              value thresholds — including UNSPSC interests that match what you supply.
+              Never miss a critical deadline. Set alerts for the tender types you bid for.
             </p>
             <div className="mt-6 rounded-xl border border-[#e8eee9] bg-[#F8FBF9] p-4 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-wide text-[#28A745]">
                 New Match Found
               </p>
               <p className="mt-1 text-sm font-bold text-[#0f1a14]">
-                A new listing that matches your types and regions
+                A new listing that matches your tender types
               </p>
               <p className="mt-1 text-xs text-[#6e7a70]">
                 We email you when a GHANEPS tender fits what you chose

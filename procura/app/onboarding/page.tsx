@@ -6,7 +6,6 @@ import {
   Briefcase,
   Check,
   Hammer,
-  MapPin,
   Package,
   Recycle,
   Wrench,
@@ -15,9 +14,7 @@ import {
 import { BrandMark } from "@/components/brand/brand-mark";
 import { createClient } from "@/lib/supabase/client";
 import {
-  GHANA_REGION_OPTIONS,
   PROCUREMENT_TYPE_OPTIONS,
-  type GhanaRegionOption,
   type ProcurementTypeOption,
 } from "@/lib/ghaneps";
 
@@ -32,11 +29,10 @@ const TYPE_ICONS: Record<ProcurementTypeOption, LucideIcon> = {
 export default function OnboardingPage() {
   const router = useRouter();
   const [types, setTypes] = useState<ProcurementTypeOption[]>([]);
-  const [regions, setRegions] = useState<GhanaRegionOption[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const canContinue = types.length > 0 && regions.length > 0;
+  const canContinue = types.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +46,7 @@ export default function OnboardingPage() {
 
         const { data: prefs } = await supabase
           .from("user_preferences")
-          .select("procurement_types, regions")
+          .select("procurement_types")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -60,11 +56,7 @@ export default function OnboardingPage() {
           (t: string): t is ProcurementTypeOption =>
             PROCUREMENT_TYPE_OPTIONS.some((o) => o.value === t),
         );
-        const savedRegions = (prefs.regions ?? []).filter((r: string): r is GhanaRegionOption =>
-          (GHANA_REGION_OPTIONS as readonly string[]).includes(r),
-        );
         if (savedTypes.length) setTypes(Array.from(new Set(savedTypes)));
-        if (savedRegions.length) setRegions(Array.from(new Set(savedRegions)));
       } catch {
         // offline / no supabase
       }
@@ -81,13 +73,6 @@ export default function OnboardingPage() {
         : "Select at least one type",
     [types.length],
   );
-  const regionHint = useMemo(
-    () =>
-      regions.length
-        ? `${regions.length} region${regions.length === 1 ? "" : "s"} selected`
-        : "Select at least one region",
-    [regions.length],
-  );
 
   function toggleType(value: ProcurementTypeOption) {
     setTypes((prev) =>
@@ -95,16 +80,10 @@ export default function OnboardingPage() {
     );
   }
 
-  function toggleRegion(value: GhanaRegionOption) {
-    setRegions((prev) =>
-      prev.includes(value) ? prev.filter((r) => r !== value) : [...prev, value],
-    );
-  }
-
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!canContinue) {
-      setError("Choose at least one tender type and one region to continue.");
+      setError("Choose at least one tender type to continue.");
       return;
     }
 
@@ -124,7 +103,6 @@ export default function OnboardingPage() {
         {
           user_id: user.id,
           procurement_types: types,
-          regions,
           onboarding_completed_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
@@ -163,8 +141,8 @@ export default function OnboardingPage() {
             What tenders should we watch for you?
           </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#3e4941] sm:text-base">
-            Pick the GHANEPS types you bid for and the regions you work in. We use this to
-            match tenders and send you email alerts.
+            Pick the GHANEPS types you bid for. We match tenders of those types and send you
+            email alerts.
           </p>
 
           <section className="mt-8">
@@ -204,44 +182,6 @@ export default function OnboardingPage() {
                     </div>
                     <p className="mt-3 text-base font-bold text-[#131e17]">{opt.label}</p>
                     <p className="mt-1 text-sm leading-6 text-[#3e4941]">{opt.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="mt-10">
-            <div className="flex flex-wrap items-end justify-between gap-2">
-              <h2 className="text-lg font-bold text-[#131e17]">Regions</h2>
-              <p className="text-sm font-medium text-[#6e7a70]">{regionHint}</p>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {GHANA_REGION_OPTIONS.map((region) => {
-                const selected = regions.includes(region);
-                return (
-                  <button
-                    key={region}
-                    type="button"
-                    onClick={() => toggleRegion(region)}
-                    aria-pressed={selected}
-                    className={`rounded-2xl border p-3 text-left transition-colors ${
-                      selected
-                        ? "border-[#006a3f] bg-[#eaf7ec] ring-2 ring-[#006a3f]/20"
-                        : "border-[#d6dfd5] bg-white hover:border-[#006a3f]/40"
-                    }`}
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <MapPin
-                        className={`h-4 w-4 shrink-0 ${selected ? "text-[#006a3f]" : "text-[#6e7a70]"}`}
-                        aria-hidden
-                      />
-                      {selected ? (
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#006a3f] text-white">
-                          <Check className="h-3 w-3" aria-hidden />
-                        </span>
-                      ) : null}
-                    </span>
-                    <p className="mt-2 text-sm font-bold leading-5 text-[#131e17]">{region}</p>
                   </button>
                 );
               })}

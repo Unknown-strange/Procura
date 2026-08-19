@@ -7,5 +7,5 @@ export type OnboardingPrefs = {
 export function hasCompletedOnboarding(prefs: OnboardingPrefs): boolean {
   if (!prefs) return false;
   if (prefs.onboarding_completed_at) return true;
-  return (prefs.procurement_types?.length ?? 0) > 0 && (prefs.regions?.length ?? 0) > 0;
+  return (prefs.procurement_types?.length ?? 0) > 0;
 }

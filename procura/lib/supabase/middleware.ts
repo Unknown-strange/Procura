@@ -78,7 +78,7 @@ export async function updateSession(request: NextRequest) {
 
   const { data: prefs, error: prefsError } = await supabase
     .from("user_preferences")
-    .select("procurement_types, regions, onboarding_completed_at")
+    .select("procurement_types, onboarding_completed_at")
     .eq("user_id", user.id)
     .maybeSingle();
 

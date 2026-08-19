@@ -1,11 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, X } from "lucide-react";
 import { PasswordField } from "@/components/auth/password-field";
 import { AppShell } from "@/components/layout/app-shell";
-import { GHANA_REGION_OPTIONS } from "@/lib/ghaneps";
 import { scorePassword } from "@/lib/password-strength";
 import { createClient } from "@/lib/supabase/client";
 
@@ -21,18 +19,11 @@ export default function SettingsPage() {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [inAppAlerts, setInAppAlerts] = useState(true);
   const [digestFrequency, setDigestFrequency] = useState<DigestFrequency>("immediate");
-  const [regions, setRegions] = useState<string[]>([]);
-  const [regionToAdd, setRegionToAdd] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [hydrating, setHydrating] = useState(true);
-
-  const availableRegions = useMemo(
-    () => GHANA_REGION_OPTIONS.filter((r) => !regions.includes(r)),
-    [regions],
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -58,14 +49,12 @@ export default function SettingsPage() {
 
         const { data: prefs } = await supabase
           .from("user_preferences")
-          .select("regions, email_alerts")
+          .select("email_alerts")
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (prefs) {
           setEmailAlerts(prefs.email_alerts ?? true);
-          const saved = (prefs.regions ?? []).filter((r: string): r is string => Boolean(r));
-          setRegions(Array.from(new Set(saved)));
         }
 
         const { data: notif } = await supabase
@@ -97,16 +86,6 @@ export default function SettingsPage() {
     };
   }, []);
 
-  function addRegion() {
-    if (!regionToAdd) return;
-    setRegions((prev) => (prev.includes(regionToAdd) ? prev : [...prev, regionToAdd]));
-    setRegionToAdd("");
-  }
-
-  function removeRegion(value: string) {
-    setRegions((prev) => prev.filter((r) => r !== value));
-  }
-
   function switchTab(next: Tab) {
     setTab(next);
     setMessage("");
@@ -127,14 +106,6 @@ export default function SettingsPage() {
       }
 
       await supabase.from("profiles").update({ full_name: fullName }).eq("id", user.id);
-      await supabase.from("user_preferences").upsert(
-        {
-          user_id: user.id,
-          regions,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" },
-      );
       setMessage("Profile saved.");
     } catch {
       setMessage("Could not save profile. Connect Supabase first.");
@@ -244,7 +215,7 @@ export default function SettingsPage() {
           <>
             <h2 className="text-xl font-bold text-[#131e17]">Profile</h2>
             <p className="mt-1 text-base text-[#6e7a70]">
-              Your name and preferred regions for tender alerts. Tender types are on Company Profile.
+              Your display name. Tender types for alerts are on Company Profile.
             </p>
             <form onSubmit={saveProfile} className="mt-8 max-w-3xl space-y-8">
               <div>
@@ -252,72 +223,9 @@ export default function SettingsPage() {
                 <input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Kwame Mensah"
+                  placeholder="Prince Nyarko"
                   className="h-12 w-full max-w-xl rounded-xl border border-[#d6dfd5] px-4 text-base focus:border-2 focus:border-[#006a3f] focus:outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-bold text-[#3e4941]" htmlFor="region">
-                  Preferred regions
-                </label>
-                <p className="mb-3 text-sm text-[#6e7a70]">
-                  Choose a region from the dropdown — it appears as a card below. Add as many as you
-                  need, then save.
-                </p>
-                <div className="flex flex-col gap-3 sm:max-w-xl sm:flex-row">
-                  <select
-                    id="region"
-                    value={regionToAdd}
-                    onChange={(e) => setRegionToAdd(e.target.value)}
-                    className="h-12 w-full rounded-xl border border-[#d6dfd5] bg-white px-4 text-base focus:border-2 focus:border-[#006a3f] focus:outline-none sm:flex-1"
-                  >
-                    <option value="">Select region…</option>
-                    {availableRegions.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={addRegion}
-                    disabled={!regionToAdd}
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#006a3f] px-5 text-sm font-bold text-white disabled:opacity-50"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden />
-                    Add
-                  </button>
-                </div>
-
-                {regions.length ? (
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {regions.map((value) => (
-                      <article
-                        key={value}
-                        className="relative rounded-2xl border border-[#d6dfd5] border-l-4 border-l-[#006a3f] bg-[#f0fdf1] p-4"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => removeRegion(value)}
-                          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg text-[#6e7a70] hover:bg-white"
-                          aria-label={`Remove ${value}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                        <p className="pr-8 text-base font-bold text-[#006a3f]">{value}</p>
-                        <p className="mt-1 text-sm leading-6 text-[#3e4941]">
-                          You will be alerted for tenders in this region.
-                        </p>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-4 rounded-xl border border-dashed border-[#d6dfd5] px-4 py-6 text-center text-sm text-[#6e7a70]">
-                    No regions added yet. Pick one from the dropdown above (or leave empty for all
-                    regions).
-                  </p>
-                )}
               </div>
 
               {message ? <p className="text-sm font-medium text-[#6e7a70]">{message}</p> : null}
