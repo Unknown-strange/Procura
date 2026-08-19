@@ -14,32 +14,32 @@ export type TenderFilters = {
   pageSize?: number;
 };
 
-function applyTenderFilters<Q extends {
-  or: (filter: string) => Q;
-  eq: (column: string, value: string) => Q;
-  in: (column: string, values: readonly string[]) => Q;
-}>(query: Q, filters: TenderFilters): Q {
-  let next = query;
+function applyTenderFilters(
+  // Supabase query builders nest types too deeply for a recursive generic.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  query: any,
+  filters: TenderFilters,
+) {
   if (filters.q) {
-    next = next.or(`title.ilike.%${filters.q}%,description.ilike.%${filters.q}%`);
+    query = query.or(`title.ilike.%${filters.q}%,description.ilike.%${filters.q}%`);
   }
   const types = (filters.types ?? []).filter(Boolean);
   if (types.length) {
-    next = next.in("procurement_type", types);
+    query = query.in("procurement_type", types);
   } else if (filters.type && filters.type !== "all") {
-    next = next.eq("procurement_type", filters.type);
+    query = query.eq("procurement_type", filters.type);
   }
   if (filters.region && filters.region !== "all") {
-    next = next.eq("region", filters.region);
+    query = query.eq("region", filters.region);
   }
   if (filters.status && filters.status !== "all") {
     if (filters.status === "active") {
-      next = next.in("status", [...ACTIVE_TENDER_STATUSES]);
+      query = query.in("status", [...ACTIVE_TENDER_STATUSES]);
     } else {
-      next = next.eq("status", filters.status);
+      query = query.eq("status", filters.status);
     }
   }
-  return next;
+  return query;
 }
 
 function normalizeTenderUrl(
