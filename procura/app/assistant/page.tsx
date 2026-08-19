@@ -19,16 +19,27 @@ import {
   FileSearch,
   FileText,
   FolderCog,
+  History,
   Lightbulb,
   Lock,
   Paperclip,
   SquarePen,
+  Trash2,
 } from "lucide-react";
 import { ChatMarkdown } from "@/components/assistant/chat-markdown";
 import { AppShell } from "@/components/layout/app-shell";
 import { OpenOnGhaneps } from "@/components/tenders/open-on-ghaneps";
+import {
+  chatTitleFromTender,
+  deleteAssistantChat,
+  loadAssistantChats,
+  upsertAssistantChat,
+  type AssistantChat,
+  type AssistantChatMessage,
+} from "@/lib/assistant-chats";
 import { createClient } from "@/lib/supabase/client";
 import { ghanepsTenderUrl } from "@/lib/ghaneps";
+import { formatRelativeTime } from "@/lib/utils";
 import {
   DOC_ACCEPT,
   TYPICAL_TENDER_DOCUMENTS,
@@ -47,11 +58,7 @@ type TenderOption = {
   ghaneps_id: string | null;
 };
 
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
+type ChatMessage = AssistantChatMessage;
 
 const EMPTY_ASSISTANT =
   "Start with **Documents Needed**, then upload a tender PDF if you want analysis.";
@@ -75,9 +82,13 @@ function AssistantInner() {
   const [docs, setDocs] = useState<UserDocument[]>([]);
   const [ghanepsUrl, setGhanepsUrl] = useState<string | null>(null);
   const [showJump, setShowJump] = useState(false);
+  const [chats, setChats] = useState<AssistantChat[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stickToBottom = useRef(true);
+  const activeChatIdRef = useRef<string | null>(null);
 
   const hasUploads = docs.length > 0;
   const canAsk = Boolean(draft.trim()) && !loading;
@@ -100,6 +111,10 @@ function AssistantInner() {
   useEffect(() => {
     void refreshDocs();
   }, [refreshDocs]);
+
+  useEffect(() => {
+    setChats(loadAssistantChats());
+  }, []);
 
   function scrollThreadToBottom() {
     const el = threadRef.current;
@@ -242,6 +257,22 @@ Procura helps with the tender pack itself:
 Upload the tender document (or other working files) if you want the AI to analyze that pack. Official bidding stays on GHANEPS.`;
   }
 
+  function persistCurrent(nextMessages: ChatMessage[]) {
+    if (!nextMessages.length) return;
+    const id = activeChatIdRef.current ?? crypto.randomUUID();
+    activeChatIdRef.current = id;
+    setActiveChatId(id);
+    setChats(
+      upsertAssistantChat({
+        id,
+        title: chatTitleFromTender(tender?.title),
+        tenderId: tenderId || tender?.id || "",
+        messages: nextMessages,
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  }
+
   function startNewChat() {
     setMessages([]);
     setDraft("");
@@ -249,6 +280,32 @@ Upload the tender document (or other working files) if you want the AI to analyz
     setReadyPercent(null);
     stickToBottom.current = true;
     setShowJump(false);
+    activeChatIdRef.current = null;
+    setActiveChatId(null);
+    setHistoryOpen(false);
+  }
+
+  function openSavedChat(chat: AssistantChat) {
+    activeChatIdRef.current = chat.id;
+    setActiveChatId(chat.id);
+    setMessages(chat.messages);
+    setTenderId(chat.tenderId);
+    const t = tenders.find((x) => x.id === chat.tenderId);
+    setGhanepsUrl(
+      t
+        ? ghanepsTenderUrl({ source_url: t.source_url, ghaneps_id: t.ghaneps_id })
+        : ghanepsUrl,
+    );
+    setDraft("");
+    setStatusMessage("");
+    setReadyPercent(null);
+    setHistoryOpen(false);
+    stickToBottom.current = true;
+  }
+
+  function removeSavedChat(id: string) {
+    setChats(deleteAssistantChat(id));
+    if (activeChatIdRef.current === id) startNewChat();
   }
 
   async function sendChat(userText: string, command = "ai-chat", fallback?: string) {
@@ -260,6 +317,7 @@ Upload the tender document (or other working files) if you want the AI to analyz
     const userMsg: ChatMessage = { id: newMessageId(), role: "user", content: question };
     stickToBottom.current = true;
     setMessages([...prior, userMsg]);
+    persistCurrent([...prior, userMsg]);
     setLoading(true);
     setStatusMessage("");
 
@@ -278,7 +336,11 @@ Upload the tender document (or other working files) if you want the AI to analyz
             ? `About “${question}”:\n\n${documentsPromptBlock(docs)}\n\nFor binding rules, use GHANEPS.`
             : `About “${question}”:\n\n${neededDocsFallback()}`),
       );
-      setMessages((prev) => [...prev, { id: newMessageId(), role: "assistant", content: reply }]);
+      setMessages((prev) => {
+        const next = [...prev, { id: newMessageId(), role: "assistant" as const, content: reply }];
+        persistCurrent(next);
+        return next;
+      });
       setGhanepsUrl(resolveGhaneps(remote?.ghaneps_url, tender));
     } finally {
       setLoading(false);
@@ -307,7 +369,9 @@ Upload the tender document (or other working files) if you want the AI to analyz
     const question = "Check my uploaded documents against this tender pack.";
     const prior = messages;
     stickToBottom.current = true;
-    setMessages([...prior, { id: newMessageId(), role: "user", content: question }]);
+    const nextMessages = [...prior, { id: newMessageId(), role: "user" as const, content: question }];
+    setMessages(nextMessages);
+    persistCurrent(nextMessages);
     setLoading(true);
     setStatusMessage("");
     try {
@@ -325,7 +389,11 @@ Upload the tender document (or other working files) if you want the AI to analyz
           .map((d) => `• ${d.title} (${d.document_type})`)
           .join("\n")}\n\nCompare these against the checklist from “Documents Needed”, then continue on GHANEPS for the official submission.`;
       }
-      setMessages((prev) => [...prev, { id: newMessageId(), role: "assistant", content: reply }]);
+      setMessages((prev) => {
+        const next = [...prev, { id: newMessageId(), role: "assistant" as const, content: reply }];
+        persistCurrent(next);
+        return next;
+      });
       setGhanepsUrl(resolveGhaneps(remote?.ghaneps_url, tender));
     } finally {
       setLoading(false);
@@ -398,11 +466,125 @@ Upload the tender document (or other working files) if you want the AI to analyz
     setGhanepsUrl(
       t ? ghanepsTenderUrl({ source_url: t.source_url, ghaneps_id: t.ghaneps_id }) : null,
     );
+    if (activeChatIdRef.current && messages.length) {
+      setChats(
+        upsertAssistantChat({
+          id: activeChatIdRef.current,
+          title: chatTitleFromTender(t?.title),
+          tenderId: id,
+          messages,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    }
   }
 
   return (
     <AppShell title="Tender Intelligence" fill>
-      <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#d6dfd5] bg-white shadow-[0_2px_4px_rgba(32,43,36,0.04)]">
+      <div className="relative flex min-h-0 flex-1 gap-3 overflow-hidden">
+        <aside className="hidden w-[280px] shrink-0 flex-col overflow-hidden rounded-2xl border border-[#d6dfd5] bg-white md:flex">
+          <div className="flex items-center justify-between border-b border-[#d6dfd5] px-3 py-3">
+            <p className="text-sm font-bold text-[#131e17]">Chat history</p>
+            <button
+              type="button"
+              onClick={startNewChat}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold text-[#006a3f] hover:bg-[#eaf7ec]"
+            >
+              <SquarePen className="h-3.5 w-3.5" aria-hidden />
+              New
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+            {chats.length ? (
+              <ul className="space-y-1">
+                {chats.map((chat) => {
+                  const active = chat.id === activeChatId;
+                  return (
+                    <li key={chat.id}>
+                      <div
+                        className={`group flex items-start gap-1 rounded-xl px-2 py-2 ${
+                          active ? "bg-[#eaf7ec]" : "hover:bg-[#f8faf8]"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => openSavedChat(chat)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="truncate text-sm font-bold text-[#131e17]">{chat.title}</p>
+                          <p className="mt-0.5 truncate text-xs text-[#6e7a70]">
+                            {formatRelativeTime(chat.updatedAt)}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSavedChat(chat.id)}
+                          className="shrink-0 rounded-md p-1 text-[#6e7a70] opacity-0 hover:bg-white hover:text-[#ba1a1a] group-hover:opacity-100"
+                          aria-label={`Delete ${chat.title}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="px-2 py-6 text-sm text-[#6e7a70]">
+                Past chats appear here, named after the procurement you discussed.
+              </p>
+            )}
+          </div>
+        </aside>
+
+        {historyOpen ? (
+          <div className="absolute inset-0 z-20 flex md:hidden">
+            <button
+              type="button"
+              className="absolute inset-0 bg-[#131e17]/30"
+              aria-label="Close history"
+              onClick={() => setHistoryOpen(false)}
+            />
+            <aside className="relative z-10 flex h-full w-[min(100%,280px)] flex-col bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b border-[#d6dfd5] px-3 py-3">
+                <p className="text-sm font-bold text-[#131e17]">Chat history</p>
+                <button
+                  type="button"
+                  onClick={() => setHistoryOpen(false)}
+                  className="text-sm font-bold text-[#006a3f]"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                {chats.length ? (
+                  <ul className="space-y-1">
+                    {chats.map((chat) => (
+                      <li key={chat.id}>
+                        <button
+                          type="button"
+                          onClick={() => openSavedChat(chat)}
+                          className={`w-full rounded-xl px-3 py-2 text-left ${
+                            chat.id === activeChatId ? "bg-[#eaf7ec]" : "hover:bg-[#f8faf8]"
+                          }`}
+                        >
+                          <p className="truncate text-sm font-bold text-[#131e17]">{chat.title}</p>
+                          <p className="mt-0.5 text-xs text-[#6e7a70]">
+                            {formatRelativeTime(chat.updatedAt)}
+                          </p>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="px-2 py-6 text-sm text-[#6e7a70]">No saved chats yet.</p>
+                )}
+              </div>
+            </aside>
+          </div>
+        ) : null}
+
+        <section className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[#d6dfd5] bg-white shadow-[0_2px_4px_rgba(32,43,36,0.04)]">
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[#d6dfd5] bg-white px-3 py-2 sm:gap-3 sm:px-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <Bot className="h-5 w-5 shrink-0 text-[#006a3f]" aria-hidden />
@@ -427,9 +609,22 @@ Upload the tender document (or other working files) if you want the AI to analyz
                 ) : (
                   <option value="">No open tenders loaded yet</option>
                 )}
+                {tenderId && !tenders.some((t) => t.id === tenderId) ? (
+                  <option value={tenderId}>
+                    {chats.find((c) => c.id === activeChatId)?.title ?? "Previous procurement"}
+                  </option>
+                ) : null}
               </select>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl border border-[#d6dfd5] bg-white px-3 text-sm font-bold text-[#006a3f] md:hidden"
+          >
+            <History className="h-4 w-4" aria-hidden />
+            History
+          </button>
           <button
             type="button"
             onClick={startNewChat}
@@ -595,7 +790,8 @@ Upload the tender document (or other working files) if you want the AI to analyz
             ) : null}
           </div>
         </div>
-      </section>
+        </section>
+      </div>
     </AppShell>
   );
 }
