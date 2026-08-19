@@ -2,10 +2,9 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 /**
- * match-users — match tenders to users by procurement type (and UNSPSC if set).
- * Region is not used: GHANEPS often omits a region field.
- * Email path: send-notification uses ghaneps_url.
- * Users need at least one procurement type from onboarding (or a type unlocked at score 90).
+ * match-users — match current GHANEPS tenders to users by procurement type.
+ * Region is not used. UNSPSC overlap boosts score but is not required.
+ * Email alerts are optional: matches are always written so the dashboard can show them.
  */
 
 const corsHeaders = {
@@ -23,15 +22,12 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const since = new Date(Date.now() - 7 * 86400000).toISOString();
-
   const { data: tenders } = await supabase
     .from("tenders")
     .select(
-      "id, title, region, procurement_type, source_url, submission_deadline, created_at, tender_unspsc(unspsc_key)",
+      "id, title, procurement_type, source_url, submission_deadline, tender_unspsc(unspsc_key)",
     )
-    .in("status", ["open", "closing_soon"])
-    .gte("created_at", since);
+    .in("status", ["open", "closing_soon"]);
 
   const { data: prefs } = await supabase
     .from("user_preferences")
@@ -47,33 +43,39 @@ serve(async (req) => {
     interestByUser.get(row.user_id)!.add(Number(row.unspsc_key));
   }
 
+  let matches = 0;
   let created = 0;
 
   for (const pref of prefs ?? []) {
-    if (pref.email_alerts === false) continue;
     if (!pref.procurement_types?.length) continue;
     const userKeys = interestByUser.get(pref.user_id) ?? new Set();
 
+    const { data: existingNotifs } = pref.email_alerts === false
+      ? { data: [] as Array<{ tender_id: string | null }> }
+      : await supabase
+          .from("notifications")
+          .select("tender_id")
+          .eq("user_id", pref.user_id)
+          .eq("notification_type", "match");
+
+    const alreadyNotified = new Set(
+      (existingNotifs ?? []).map((row) => row.tender_id).filter(Boolean),
+    );
+
     for (const tender of tenders ?? []) {
+      const typeOk =
+        Boolean(tender.procurement_type) &&
+        pref.procurement_types.includes(tender.procurement_type);
+      if (!typeOk) continue;
+
       const tenderKeys = new Set(
         ((tender.tender_unspsc as { unspsc_key: number }[] | null) ?? []).map((t) =>
           Number(t.unspsc_key),
         ),
       );
-
-      const typeOk =
-        Boolean(tender.procurement_type) &&
-        pref.procurement_types.includes(tender.procurement_type);
-
-      let unspscOk = true;
-      let score = 0.5;
-      if (userKeys.size > 0) {
-        const overlap = [...userKeys].filter((k) => tenderKeys.has(k));
-        unspscOk = overlap.length > 0;
-        score = unspscOk ? Math.min(0.99, 0.7 + overlap.length * 0.05) : 0;
-      }
-
-      if (!typeOk || !unspscOk) continue;
+      const overlap = [...userKeys].filter((k) => tenderKeys.has(k));
+      const score =
+        overlap.length > 0 ? Math.min(0.99, 0.75 + overlap.length * 0.05) : 0.7;
 
       await supabase.from("tender_matches").upsert(
         {
@@ -81,12 +83,15 @@ serve(async (req) => {
           tender_id: tender.id,
           match_score: score,
           reason:
-            userKeys.size > 0
+            overlap.length > 0
               ? "Matched your UNSPSC interests"
               : "Matched your tender types",
         },
         { onConflict: "user_id,tender_id" },
       );
+      matches += 1;
+
+      if (pref.email_alerts === false || alreadyNotified.has(tender.id)) continue;
 
       const { error } = await supabase.from("notifications").insert({
         user_id: pref.user_id,
@@ -102,7 +107,10 @@ serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, notifications_created: created }), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+  return new Response(
+    JSON.stringify({ ok: true, matches, notifications_created: created }),
+    {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    },
+  );
 });

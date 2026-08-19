@@ -35,7 +35,7 @@ type ScrapedTender = {
   description: string;
   procurement_type: ProcurementType | null;
   region: string | null;
-  status: "open" | "closing_soon" | "closed" | "awarded";
+  status: "open" | "closing_soon" | "closed" | "awarded" | "cancelled";
   submission_deadline: string | null;
   published_at: string | null;
   source_url: string;
@@ -91,9 +91,11 @@ function parseGhanepsDate(raw: string | null): string | null {
     const day = Number(dmy[1]);
     const month = Number(dmy[2]) - 1;
     const year = Number(dmy[3]);
-    const hour = Number(dmy[4] ?? "0");
-    const minute = Number(dmy[5] ?? "0");
-    const second = Number(dmy[6] ?? "0");
+    const hasTime = Boolean(dmy[4]);
+    // Date-only GHANEPS deadlines stay current through the end of that Ghana day (UTC+0).
+    const hour = Number(dmy[4] ?? "23");
+    const minute = Number(dmy[5] ?? "59");
+    const second = Number(dmy[6] ?? (hasTime ? "0" : "59"));
     const date = new Date(Date.UTC(year, month, day, hour, minute, second));
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   }
@@ -181,12 +183,18 @@ function normalizeType(value: string | null): ProcurementType | null {
   return inferType(v);
 }
 
-function statusFrom(deadlineIso: string | null, ghanepsStatus: string) {
+function statusFrom(
+  deadlineIso: string | null,
+  ghanepsStatus: string,
+  listedAsCurrent = true,
+) {
   const status = ghanepsStatus.toLowerCase();
   if (status.includes("award")) return "awarded" as const;
+  if (status.includes("cancel")) return "cancelled" as const;
   if (deadlineIso) {
     const days = Math.ceil((new Date(deadlineIso).getTime() - Date.now()) / 86400000);
-    if (days < 0) return "closed" as const;
+    // GHANEPS current-tenders list is the source of truth while a notice is still listed.
+    if (days < 0) return listedAsCurrent ? ("closing_soon" as const) : ("closed" as const);
     if (days <= 3) return "closing_soon" as const;
   }
   return "open" as const;
@@ -285,7 +293,7 @@ function applyDetail(item: ScrapedTender, html: string): ScrapedTender {
     region,
     submission_deadline: deadline,
     published_at: published,
-    status: statusFrom(deadline, item.status),
+    status: statusFrom(deadline, "", true),
   };
 }
 
@@ -390,6 +398,15 @@ serve(async (req) => {
 
       const { error } = await supabase.from("tenders").upsert(payload, { onConflict: "ghaneps_id" });
       if (!error) inserted += 1;
+    }
+
+    if (pages >= lastPage && finalListings.length > 0) {
+      const currentIds = finalListings.map((item) => item.ghaneps_id);
+      await supabase
+        .from("tenders")
+        .update({ status: "closed", updated_at: new Date().toISOString() })
+        .in("status", ["open", "closing_soon"])
+        .not("ghaneps_id", "in", `(${currentIds.join(",")})`);
     }
 
     if (run?.id) {

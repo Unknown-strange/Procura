@@ -2,14 +2,45 @@ import { ghanepsTenderUrl, normalizeProcurementType } from "@/lib/ghaneps";
 import { createClient } from "@/lib/supabase/server";
 import type { TenderDetail, TenderListItem, TenderStatus } from "@/lib/types";
 
+export const ACTIVE_TENDER_STATUSES = ["open", "closing_soon"] as const;
+
 export type TenderFilters = {
   q?: string;
   type?: string;
+  types?: string[];
   region?: string;
   status?: string;
   page?: number;
   pageSize?: number;
 };
+
+function applyTenderFilters<Q extends {
+  or: (filter: string) => Q;
+  eq: (column: string, value: string) => Q;
+  in: (column: string, values: readonly string[]) => Q;
+}>(query: Q, filters: TenderFilters): Q {
+  let next = query;
+  if (filters.q) {
+    next = next.or(`title.ilike.%${filters.q}%,description.ilike.%${filters.q}%`);
+  }
+  const types = (filters.types ?? []).filter(Boolean);
+  if (types.length) {
+    next = next.in("procurement_type", types);
+  } else if (filters.type && filters.type !== "all") {
+    next = next.eq("procurement_type", filters.type);
+  }
+  if (filters.region && filters.region !== "all") {
+    next = next.eq("region", filters.region);
+  }
+  if (filters.status && filters.status !== "all") {
+    if (filters.status === "active") {
+      next = next.in("status", [...ACTIVE_TENDER_STATUSES]);
+    } else {
+      next = next.eq("status", filters.status);
+    }
+  }
+  return next;
+}
 
 function normalizeTenderUrl(
   source_url: string | null | undefined,
@@ -104,24 +135,14 @@ export async function listTenders(filters: TenderFilters = {}): Promise<{
     const supabase = await createClient();
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
-    let query = supabase
-      .from("tenders")
-      .select(LIST_COLUMNS, { count: "exact" })
-      .order("submission_deadline", { ascending: true })
-      .range(from, to);
-
-    if (filters.q) {
-      query = query.or(`title.ilike.%${filters.q}%,description.ilike.%${filters.q}%`);
-    }
-    if (filters.type && filters.type !== "all") {
-      query = query.eq("procurement_type", filters.type);
-    }
-    if (filters.region && filters.region !== "all") {
-      query = query.eq("region", filters.region);
-    }
-    if (filters.status && filters.status !== "all") {
-      query = query.eq("status", filters.status);
-    }
+    const query = applyTenderFilters(
+      supabase
+        .from("tenders")
+        .select(LIST_COLUMNS, { count: "exact" })
+        .order("submission_deadline", { ascending: true })
+        .range(from, to),
+      filters,
+    );
 
     const { data, error, count } = await query;
     if (error) throw error;
@@ -137,14 +158,16 @@ export async function listTenders(filters: TenderFilters = {}): Promise<{
   }
 }
 
-export async function countTenders(filters: Pick<TenderFilters, "status"> = {}): Promise<number> {
+export async function countTenders(
+  filters: Pick<TenderFilters, "status" | "type" | "types"> = {},
+): Promise<number> {
   if (!supabaseConfigured()) return 0;
   try {
     const supabase = await createClient();
-    let query = supabase.from("tenders").select("id", { count: "exact", head: true });
-    if (filters.status && filters.status !== "all") {
-      query = query.eq("status", filters.status);
-    }
+    const query = applyTenderFilters(
+      supabase.from("tenders").select("id", { count: "exact", head: true }),
+      filters,
+    );
     const { count, error } = await query;
     if (error) throw error;
     return count ?? 0;

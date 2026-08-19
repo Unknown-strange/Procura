@@ -37,8 +37,14 @@ export function TenderFiltersBar({
 
   function setParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
-    if (!value || value === "all") params.delete(key);
-    else params.set(key, value);
+    if (key === "status") {
+      if (!value || value === "active") params.delete(key);
+      else params.set(key, value);
+    } else if (!value || value === "all") {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
     params.delete("page");
     startTransition(() => router.push(`/tenders?${params.toString()}`));
   }
@@ -84,14 +90,15 @@ export function TenderFiltersBar({
         </select>
         <select
           className="min-h-12 rounded-md border border-border bg-card px-4 text-base"
-          defaultValue={searchParams.get("status") ?? "all"}
+          defaultValue={searchParams.get("status") ?? "active"}
           onChange={(e) => setParam("status", e.target.value)}
           aria-label="Status"
         >
-          <option value="all">All statuses</option>
+          <option value="active">Current listings</option>
           <option value="open">Open</option>
           <option value="closing_soon">Closing soon</option>
           <option value="closed">Closed</option>
+          <option value="all">All statuses</option>
         </select>
         {isPending ? (
           <span className="self-center text-sm font-medium text-muted">Updating…</span>

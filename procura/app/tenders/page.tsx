@@ -19,7 +19,7 @@ export default async function TendersPage({
   const q = typeof params.q === "string" ? params.q : undefined;
   const type = typeof params.type === "string" ? params.type : undefined;
   const region = typeof params.region === "string" ? params.region : undefined;
-  const status = typeof params.status === "string" ? params.status : "open";
+  const status = typeof params.status === "string" ? params.status : "active";
   const page = Number(typeof params.page === "string" ? params.page : "1") || 1;
 
   const { items, total, pageSize } = await listTenders({

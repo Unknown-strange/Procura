@@ -13,7 +13,7 @@ import { TenderCountTicker } from "@/components/home/tender-count-ticker";
 import { countTenders } from "@/lib/data/tenders";
 
 export default async function LandingPage() {
-  const initialCount = await countTenders();
+  const initialCount = await countTenders({ status: "active" });
 
   return (
     <div className="min-h-screen overflow-x-clip bg-white text-[#131e17]">

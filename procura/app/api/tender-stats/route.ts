@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 /** Live tender total for the homepage counter. */
 export async function GET() {
   try {
-    const total = await countTenders();
+    const total = await countTenders({ status: "active" });
     return NextResponse.json({
       total,
       source: "supabase",

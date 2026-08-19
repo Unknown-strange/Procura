@@ -36,7 +36,44 @@ async function getActivePrompt(
   return data;
 }
 
-async function callGroq(system: string, user: string) {
+type ChatTurn = { role: "user" | "assistant"; content: string };
+
+function normalizeHistory(raw: unknown): ChatTurn[] {
+  if (!Array.isArray(raw)) return [];
+  const turns: ChatTurn[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const role = (item as { role?: unknown }).role;
+    const content = (item as { content?: unknown }).content;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string") continue;
+    const text = content.trim();
+    if (!text) continue;
+    turns.push({ role, content: text });
+  }
+  return turns.slice(-12);
+}
+
+function extractGroqContent(json: {
+  choices?: Array<{ message?: { content?: unknown } }>;
+}): string {
+  const raw = json.choices?.[0]?.message?.content;
+  if (typeof raw === "string") return raw.trim();
+  if (Array.isArray(raw)) {
+    return raw
+      .map((part) => {
+        if (typeof part === "string") return part;
+        if (part && typeof part === "object" && "text" in part) {
+          return String((part as { text?: unknown }).text ?? "");
+        }
+        return "";
+      })
+      .join("")
+      .trim();
+  }
+  return "";
+}
+
+async function callGroq(system: string, turns: ChatTurn[]) {
   const key = Deno.env.get("GROQ_API_KEY")?.trim().replace(/^["']+|["']+$/g, "");
   if (!key) {
     return {
@@ -47,6 +84,11 @@ async function callGroq(system: string, user: string) {
     };
   }
 
+  const messages = [
+    { role: "system", content: system },
+    ...turns.map((turn) => ({ role: turn.role, content: turn.content })),
+  ];
+
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -54,18 +96,15 @@ async function callGroq(system: string, user: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
+      model: "openai/gpt-oss-120b",
+      messages,
       temperature: 0.2,
-      max_tokens: 1024,
+      max_tokens: 2048,
     }),
   });
 
   const json = await res.json();
-  const content = json.choices?.[0]?.message?.content?.trim();
+  const content = extractGroqContent(json);
   if (!content) {
     const groqError =
       (typeof json.error === "string" && json.error) ||
@@ -114,6 +153,7 @@ serve(async (req) => {
     const command = (body.command as string) ?? "explain-tender";
     const question = (body.question as string) ?? "";
     const clientDocs = Array.isArray(body.documents) ? body.documents : [];
+    const history = normalizeHistory(body.history);
 
     const admin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -180,9 +220,6 @@ serve(async (req) => {
       admin,
       command === "ai-chat" ? "ai-chat" : command,
     );
-    const system =
-      prompt?.prompt_text ??
-      "You help Ghana suppliers prepare for public tenders. Assume company registration, GRA tax clearance, SSNIT clearance, and financial statements are already in order — never ask the user to upload those. Only analyze tender documents and other files they share. Point them to GHANEPS for official bidding.";
 
     const docsBlock = docs.length
       ? docs
@@ -202,17 +239,28 @@ Type: ${tender.procurement_type}
 Region: ${tender.region}
 Deadline: ${tender.submission_deadline}
 GHANEPS URL: ${tender.source_url}`
-        : "Tender: (not in database — answer from the question and any documents)";
+      : "Tender: (not in database — answer from the question and any documents)";
 
-    const userContent = `${tenderBlock}
+    const system = `${prompt?.prompt_text ??
+      "You help Ghana suppliers prepare for public tenders. Assume company registration, GRA tax clearance, SSNIT clearance, and financial statements are already in order — never ask the user to upload those. Only analyze tender documents and other files they share. Point them to GHANEPS for official bidding."}
+
+Current tender:
+${tenderBlock}
 
 User uploaded documents:
-${docsBlock}
+${docsBlock}`;
 
-User question: ${question || "Help with this tender pack. Assume company registration, tax, SSNIT, and financials are already in order. Do not ask the user to upload those."}`;
+    const currentQuestion =
+      question.trim() ||
+      "Help with this tender pack. Assume company registration, tax, SSNIT, and financials are already in order. Do not ask the user to upload those.";
+
+    const turns: ChatTurn[] = [
+      ...history.filter((turn) => turn.content !== currentQuestion),
+      { role: "user", content: currentQuestion },
+    ].slice(-12);
 
     const started = Date.now();
-    const result = await callGroq(system, userContent);
+    const result = await callGroq(system, turns);
 
     await admin.from("ai_interactions").insert({
       user_id: user.id,

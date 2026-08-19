@@ -24,46 +24,45 @@ export default async function DashboardPage() {
     user?.email?.split("@")[0] ||
     "there";
 
-  const [openCount, closingCount, open, closing] = await Promise.all([
-    countTenders({ status: "open" }),
+  const [openCount, closingCount, current, closing] = await Promise.all([
+    countTenders({ status: "active" }),
     countTenders({ status: "closing_soon" }),
-    listTenders({ pageSize: 4, status: "open" }),
+    listTenders({ pageSize: 4, status: "active" }),
     listTenders({ pageSize: 3, status: "closing_soon" }),
   ]);
 
   let savedCount = 0;
   let matchCount = 0;
-  let recommended = open.items;
+  let hasInterests = false;
+  let recommended = current.items;
   const matchScores = new Map<string, number>();
 
   if (user) {
-    const [{ count: saved }, { count: matchesTotal }, { data: matches }] = await Promise.all([
+    const [{ count: saved }, { data: prefs }] = await Promise.all([
       supabase
         .from("saved_tenders")
         .select("tender_id", { count: "exact", head: true })
         .eq("user_id", user.id),
       supabase
-        .from("tender_matches")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id),
-      supabase
-        .from("tender_matches")
-        .select("tender_id, match_score")
+        .from("user_preferences")
+        .select("procurement_types")
         .eq("user_id", user.id)
-        .order("match_score", { ascending: false })
-        .limit(4),
+        .maybeSingle(),
     ]);
     savedCount = saved ?? 0;
-    matchCount = matchesTotal ?? 0;
-    for (const row of matches ?? []) {
-      if (typeof row.match_score === "number") {
-        matchScores.set(row.tender_id, Math.round(row.match_score * 100));
+    const types = (prefs?.procurement_types ?? []).filter(Boolean);
+    hasInterests = types.length > 0;
+
+    if (hasInterests) {
+      const [matchedTotal, matched] = await Promise.all([
+        countTenders({ status: "active", types }),
+        listTenders({ pageSize: 4, status: "active", types }),
+      ]);
+      matchCount = matchedTotal;
+      if (matched.items.length) recommended = matched.items;
+      for (const item of matched.items) {
+        matchScores.set(item.id, 100);
       }
-    }
-    const matchIds = (matches ?? []).map((m) => m.tender_id).filter(Boolean);
-    if (matchIds.length) {
-      const matchedItems = open.items.filter((t) => matchIds.includes(t.id));
-      if (matchedItems.length) recommended = matchedItems;
     }
   }
 
@@ -76,14 +75,18 @@ export default async function DashboardPage() {
     {
       label: "Open tenders",
       value: String(openCount),
-      hint: "From GHANEPS",
+      hint: "Current GHANEPS listings",
       icon: Zap,
       tone: "text-[#006a3f]",
     },
     {
       label: "Matching your business",
       value: String(matchCount),
-      hint: matchCount ? "Based on your interests" : "Set interests to get matches",
+      hint: matchCount
+        ? "Based on your tender types"
+        : hasInterests
+          ? "No current matches for your types"
+          : "Set interests to get matches",
       icon: Handshake,
       tone: "text-[#705d00]",
     },
@@ -171,7 +174,7 @@ export default async function DashboardPage() {
                         Deadline {formatDeadline(t.submission_deadline)}
                       </p>
                       {score != null ? (
-                        <p className="text-sm font-bold text-[#006a3f]">Match {score}%</p>
+                        <p className="text-sm font-bold text-[#006a3f]">Matches your types</p>
                       ) : null}
                     </div>
                     <div className="mt-4 flex flex-wrap gap-3">
