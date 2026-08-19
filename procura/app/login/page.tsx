@@ -48,7 +48,7 @@ export default function LoginPage() {
             Welcome back to Ghana’s tender intelligence platform.
           </h1>
           <p className="mt-4 text-sm leading-7 text-[#3e4941] sm:text-base">
-            Pick up where you left off — review matching tenders, check your documents, and
+            Pick up where you left off — review matching tenders, analyze tender packs, and
             continue on GHANEPS when you are ready to bid.
           </p>
           <div className="mt-8 rounded-2xl border border-[#d6dfd5] bg-white p-4 shadow-[0_2px_4px_rgba(32,43,36,0.04)] sm:mt-10">

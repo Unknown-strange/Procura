@@ -154,23 +154,23 @@ function AssistantInner() {
 
   function neededDocsFallback() {
     const type = tender?.procurement_type ?? "Goods";
-    return `Documents typically needed for a ${type} tender like “${tender?.title}”:
+    return `For a ${type} tender like “${tender?.title}”, we assume your company registration, GRA tax clearance, SSNIT clearance, and financial statements are already in order. Do not upload those here.
 
-1. Valid business registration / Certificate of Incorporation
-2. GRA Tax Clearance Certificate
-3. SSNIT Clearance Certificate
-4. Audited financial statements (often last 2–3 years)
-5. Evidence of similar experience / past contracts
-6. Any tender-specific forms from the GHANEPS bidding pack
+Procura helps with the tender pack itself:
 
-You do not need to upload sensitive files to Procura to get this guidance. When you are ready, download the official pack on GHANEPS. Optionally upload a PDF here later if you want the AI to analyze that specific file.`;
+1. Tender-specific forms from the GHANEPS bidding pack
+2. Technical proposal or completed schedules, if the IFB asks for them
+3. Evidence of similar experience, if requested
+4. Bid security, only if this notice requires it
+
+Upload the tender document (or other working files) if you want the AI to analyze that pack. Official bidding stays on GHANEPS.`;
   }
 
   async function listNeededDocs() {
     setLoading(true);
     setStatusMessage("Finding documents usually required…");
     const question =
-      "List the documents a Ghana supplier typically needs to prepare for this tender. Do not ask them to upload sensitive documents. Focus on a clear checklist.";
+      "Assume company registration, GRA tax, SSNIT, and financial statements are already in order. Do not ask the user to upload those. List only what the tender pack itself usually requires (forms, schedules, similar-experience evidence, bid security if stated).";
     const remote = await callAi("ai-chat", {
       tender_id: tenderId,
       command: "explain-tender",
@@ -191,7 +191,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
       tender_id: tenderId,
       command: "explain-tender",
       question:
-        "Explain this tender in plain language and mention which document categories are usually required. Do not pressure the user to upload sensitive files.",
+        "Explain this tender in plain language. Assume company registration, tax, SSNIT, and financials are intact. Focus on what the tender pack asks them to complete. Do not ask them to upload company compliance files.",
       documents: hasUploads
         ? docs.map((d) => ({
             id: d.id,
@@ -298,7 +298,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
     {
       id: "needed",
       title: "Documents Needed",
-      desc: "See which documents this kind of tender usually requires — no upload needed.",
+      desc: "See what the tender pack usually asks for. Company tax, SSNIT, and financials are assumed ready.",
       icon: ClipboardList,
       locked: false,
       onClick: listNeededDocs,
@@ -314,7 +314,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
     {
       id: "check",
       title: "Check My Documents",
-      desc: "Compare files you chose to upload against common requirements.",
+      desc: "Analyze tender or other files you uploaded — not company registration, tax, or financials.",
       icon: FolderCog,
       locked: !hasUploads,
       onClick: checkDocs,
@@ -322,7 +322,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
     {
       id: "missing",
       title: "Find Missing Documents",
-      desc: "Spot gaps after you optionally upload documents for analysis.",
+      desc: "Spot gaps in the tender pack you uploaded.",
       icon: FileSearch,
       locked: !hasUploads,
       onClick: checkDocs,
@@ -337,8 +337,8 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
           <h2 className="text-2xl font-bold text-[#131e17] sm:text-3xl">Tender Assistant</h2>
         </div>
         <p className="max-w-3xl text-base text-[#6e7a70]">
-          First, learn which documents you need. Uploading sensitive files is optional — only if you
-          want the AI to analyze a PDF you choose to share.
+          We assume your company registration, tax, SSNIT, and financial statements are intact.
+          Upload only the tender pack or other working files if you want the AI to analyze them.
         </p>
       </div>
 
@@ -423,7 +423,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
           <p className="text-sm font-bold text-[#006a3f]">AI response</p>
           <p className="mt-2 whitespace-pre-wrap text-base leading-7 text-[#131e17]">
             {answer ||
-              "Start with “Documents Needed” to get a checklist — no sensitive upload required."}
+              "Start with “Documents Needed”, then upload a tender PDF if you want analysis."}
           </p>
         </div>
 
@@ -448,7 +448,7 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
         <form onSubmit={onAsk} className="mt-6 flex flex-col gap-3 sm:flex-row">
           <input
             name="q"
-            placeholder="Ask what documents you need, or about an uploaded PDF…"
+            placeholder="Ask about this tender pack or an uploaded PDF…"
             className="h-12 flex-1 rounded-xl border border-[#d6dfd5] px-4"
           />
           <button
@@ -480,8 +480,8 @@ You do not need to upload sensitive files to Procura to get this guidance. When 
           </Link>
         </div>
         <p className="mb-4 text-sm text-[#6e7a70]">
-          Only upload if you want analysis. PDFs can be text-extracted for the AI. Prefer
-          non-sensitive packs when possible; official bidding stays on GHANEPS.
+          Upload the tender document or other working files only. Do not upload company
+          registration, tax, SSNIT, or financial statements. Official bidding stays on GHANEPS.
         </p>
 
         <form

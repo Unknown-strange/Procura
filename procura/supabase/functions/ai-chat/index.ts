@@ -41,7 +41,7 @@ async function callGroq(system: string, user: string) {
   if (!key) {
     return {
       content:
-        "AI is not configured yet (missing GROQ_API_KEY). Based on the tender and your uploaded document list, prepare clearances on Procura, then complete bidding on GHANEPS.",
+        "AI is not configured yet (missing GROQ_API_KEY). Assume company registration, tax, SSNIT, and financials are intact. Analyze only the tender pack or other files the user uploaded. Official bidding stays on GHANEPS.",
       input_tokens: 0,
       output_tokens: 0,
     };
@@ -172,7 +172,7 @@ serve(async (req) => {
     );
     const system =
       prompt?.prompt_text ??
-      "You help Ghana suppliers prepare for public tenders. Prefer listing required documents without demanding uploads of sensitive files. Only analyze file contents when extracted text is provided. Point them to GHANEPS for official bidding.";
+      "You help Ghana suppliers prepare for public tenders. Assume company registration, GRA tax clearance, SSNIT clearance, and financial statements are already in order — never ask the user to upload those. Only analyze tender documents and other files they share. Point them to GHANEPS for official bidding.";
 
     const docsBlock = docs.length
       ? docs
@@ -183,7 +183,7 @@ serve(async (req) => {
             return `${i + 1}. “${d.title}” (type: ${d.document_type}, status: ${d.status})${text}`;
           })
           .join("\n")
-      : "(none uploaded — help with a requirements checklist only; do not pressure uploads)";
+      : "(none uploaded — assume company registration, tax, SSNIT, and financials are intact. Help with the tender pack only; do not ask for those company files)";
 
     const tenderBlock = tender
       ? `Tender title: ${tender.title}
@@ -199,7 +199,7 @@ GHANEPS URL: ${tender.source_url}`
 User uploaded documents:
 ${docsBlock}
 
-User question: ${question || "List documents typically needed for this tender. Do not require uploads."}`;
+User question: ${question || "Help with this tender pack. Assume company registration, tax, SSNIT, and financials are already in order. Do not ask the user to upload those."}`;
 
     const started = Date.now();
     const result = await callGroq(system, userContent);

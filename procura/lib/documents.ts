@@ -1,12 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
 
 export const TYPICAL_TENDER_DOCUMENTS = [
-  "Valid business registration / Certificate of Incorporation",
-  "GRA Tax Clearance Certificate",
-  "SSNIT Clearance Certificate",
-  "Audited financial statements (often last 2–3 years)",
-  "Evidence of similar experience / past contracts",
   "Tender-specific forms from the GHANEPS bidding pack",
+  "Technical proposal or completed schedules, if the IFB asks for them",
+  "Evidence of similar experience / past contracts, if requested",
+  "Bid security or tender security, if the notice requires it",
 ];
 
 export const DOCUMENT_BUCKET = "user-documents";
@@ -14,10 +12,6 @@ export const MAX_DOC_BYTES = 10 * 1024 * 1024;
 export const DOC_ACCEPT = ".pdf,.doc,.docx,.jpg,.jpeg,.png";
 
 export const DOCUMENT_TYPE_OPTIONS = [
-  { value: "registration", label: "Company Registration", category: "registration" },
-  { value: "tax", label: "Tax / GRA", category: "tax" },
-  { value: "ssnit", label: "SSNIT", category: "tax" },
-  { value: "financial", label: "Financials", category: "financials" },
   { value: "tender", label: "Tender document", category: "tender" },
   { value: "other", label: "Other", category: "other" },
 ] as const;
@@ -43,7 +37,8 @@ const SESSION_KEY = "procura_session_documents";
 
 export function categoryForType(documentType: string): DocumentCategory {
   const match = DOCUMENT_TYPE_OPTIONS.find((o) => o.value === documentType);
-  return match?.category ?? "other";
+  if (match) return match.category;
+  return "other";
 }
 
 export function formatFileLabel(mime: string | null | undefined, title: string) {
@@ -270,7 +265,7 @@ export async function deleteUserDocument(doc: UserDocument) {
 
 export function documentsPromptBlock(docs: UserDocument[]) {
   if (!docs.length) {
-    return "User uploaded documents: (none). Do NOT pressure them to upload sensitive files. Help them identify which documents are typically needed first.";
+    return "User uploaded documents: (none). Assume company registration, GRA tax clearance, SSNIT clearance, and financial statements are already in order. Do not ask the user to upload those. Only help analyze tender packs or other files they choose to share.";
   }
   return `User uploaded documents (optional share — use titles/types and extracted text):\n${docs
     .map((d, i) => {

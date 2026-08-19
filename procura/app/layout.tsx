@@ -17,6 +17,8 @@ export const metadata: Metadata = {
     "Find, understand, and prepare for Ghana public procurement opportunities. Powered by GHANEPS data.",
   icons: {
     icon: "/logo.png",
+    apple: "/logo.png",
+    shortcut: "/logo.png",
   },
 };
 

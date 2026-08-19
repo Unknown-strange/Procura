@@ -2,10 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Briefcase,
-  Building2,
   Download,
-  FileCheck2,
   FileText,
   FolderOpen,
   Trash2,
@@ -29,11 +26,8 @@ import {
 const COLUMNS: Array<{
   key: DocumentCategory;
   title: string;
-  icon: typeof Briefcase;
+  icon: typeof FolderOpen;
 }> = [
-  { key: "registration", title: "Company Registration", icon: Briefcase },
-  { key: "tax", title: "Tax & SSNIT", icon: FileCheck2 },
-  { key: "financials", title: "Financials", icon: Building2 },
   { key: "tender", title: "Tender Documents", icon: FolderOpen },
   { key: "other", title: "Other", icon: FileText },
 ];
@@ -43,7 +37,7 @@ export default function DocumentsPage() {
   const [source, setSource] = useState<"supabase" | "session">("session");
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [documentType, setDocumentType] = useState<DocumentTypeValue>("registration");
+  const [documentType, setDocumentType] = useState<DocumentTypeValue>("tender");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [hydrating, setHydrating] = useState(true);
@@ -127,8 +121,8 @@ export default function DocumentsPage() {
         <div>
           <h2 className="text-2xl font-bold text-[#131e17] sm:text-3xl">My Documents</h2>
           <p className="mt-2 text-base text-[#6e7a70]">
-            Uploads are optional. Use them only if you want analysis — start with the Assistant
-            checklist for what documents you need. Official bidding stays on GHANEPS.
+            Upload tender packs or other files you want the assistant to analyze. We do not collect
+            company registration, tax, SSNIT, or financial statements — keep those for GHANEPS.
           </p>
           <p className="mt-1 text-xs font-semibold text-[#6e7a70]">
             Storage: {source === "supabase" ? "Saved to your account" : "This browser session only"}
@@ -201,7 +195,7 @@ export default function DocumentsPage() {
       {hydrating ? (
         <p className="text-sm text-[#6e7a70]">Loading documents…</p>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-6 lg:grid-cols-2">
           {COLUMNS.map((col) => {
             const items = grouped.get(col.key) ?? [];
             return (

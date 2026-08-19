@@ -9,7 +9,7 @@ export default function HelpPage() {
         <ol className="mt-4 list-decimal space-y-3 pl-5 text-lg leading-7 text-[#131e17]">
           <li>Find tenders sourced from GHANEPS.</li>
           <li>On Company Profile, add the types of tenders you bid for so we can email matching listings.</li>
-          <li>Use Tender Assistant to understand requirements and check documents.</li>
+          <li>Use Tender Assistant to understand the tender pack. We do not collect tax, SSNIT, or financial statements.</li>
           <li>Open the tender on GHANEPS to download packages and submit your bid.</li>
         </ol>
         <p className="mt-6 text-base text-[#6e7a70]">

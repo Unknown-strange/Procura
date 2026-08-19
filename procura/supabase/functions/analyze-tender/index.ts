@@ -8,11 +8,10 @@ const corsHeaders = {
 };
 
 const DEFAULT_REQUIREMENTS = [
-  "Valid business registration certificate",
-  "Valid Tax Clearance Certificate (GRA)",
-  "Valid SSNIT Clearance Certificate",
-  "Audited financial statements for the last 3 years",
-  "Evidence of similar contracts completed recently",
+  "Completed tender forms from the GHANEPS bidding pack",
+  "Technical proposal or schedules, if the IFB asks for them",
+  "Evidence of similar contracts, if requested in the notice",
+  "Bid security, if this tender requires it",
 ];
 
 serve(async (req) => {
@@ -81,8 +80,8 @@ serve(async (req) => {
     const rows = DEFAULT_REQUIREMENTS.map((text, i) => ({
       tender_id,
       requirement_text: text,
-      requirement_type: i < 4 ? "Mandatory" : "Optional",
-      is_mandatory: i < 4,
+      requirement_type: i < 2 ? "Mandatory" : "Optional",
+      is_mandatory: i < 2,
       sort_order: i,
     }));
 

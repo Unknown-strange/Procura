@@ -77,27 +77,41 @@ serve(async (req) => {
 
     await admin.from("document_checks").delete().eq("user_id", user.id).eq("tender_id", tender_id);
 
+    const COMPANY_DOC_HINT =
+      /\b(tax|gra|ssnit|registration|incorporat|financial statement|audited|clearance)\b/;
+
     const checks = (requirements ?? []).map((req) => {
       const text = req.requirement_text.toLowerCase();
-      let status: "FOUND" | "MISSING" | "UNCLEAR" = "MISSING";
-      let explanation = "Your document is missing for this requirement.";
-      let confidence = 0.7;
+      let status: "FOUND" | "MISSING" | "UNCLEAR" = "UNCLEAR";
+      let explanation =
+        "We assume your company registration, tax, SSNIT, and financials are in order. Upload the tender pack if you want us to check that file.";
+      let confidence = 0.6;
 
-      if (
-        (text.includes("tax") && (docTypes.has("tax") || docTitles.includes("tax"))) ||
-        (text.includes("ssnit") && (docTypes.has("ssnit") || docTitles.includes("ssnit"))) ||
-        (text.includes("registration") &&
-          (docTypes.has("registration") || docTitles.includes("registration"))) ||
-        (text.includes("financial") &&
-          (docTypes.has("financial") || docTitles.includes("audit")))
+      if (COMPANY_DOC_HINT.test(text)) {
+        status = "FOUND";
+        explanation =
+          "Assumed in order. Procura does not collect company registration, tax, SSNIT, or financial statements.";
+        confidence = 0.9;
+      } else if (
+        (text.includes("tender") && (docTypes.has("tender") || docTitles.includes("tender"))) ||
+        (text.includes("form") && (docTypes.has("tender") || docTitles.includes("form"))) ||
+        (text.includes("bid security") && docTitles.includes("security")) ||
+        (text.includes("experience") &&
+          (docTitles.includes("experience") || docTitles.includes("contract"))) ||
+        ((docs ?? []).length > 0 && (docTypes.has("tender") || docTypes.has("other")))
       ) {
         status = "FOUND";
-        explanation = "We found a matching document in your uploads.";
-        confidence = 0.85;
+        explanation = "Matched against a tender or other file you uploaded.";
+        confidence = 0.8;
       } else if ((docs ?? []).length === 0) {
         status = "UNCLEAR";
-        explanation = "Upload your company documents so we can check this properly.";
+        explanation =
+          "Upload the tender document or other working files to check this. Do not upload tax, SSNIT, or financial statements.";
         confidence = 0.4;
+      } else {
+        status = "MISSING";
+        explanation = "This item was not found in the tender/other files you uploaded.";
+        confidence = 0.65;
       }
 
       return {
@@ -130,7 +144,7 @@ serve(async (req) => {
         ok: true,
         ready_percent: readyPct,
         checks: inserted,
-        message: `Checking your documents… You are about ${readyPct}% ready.`,
+        message: `Checked your uploaded tender/other files. Company tax, SSNIT, and financials are assumed in order. You are about ${readyPct}% ready on the pack we can see.`,
         ghaneps_url: tender?.source_url,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },

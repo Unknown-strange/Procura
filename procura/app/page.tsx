@@ -192,9 +192,9 @@ export default async function LandingPage() {
                 Decode Complex Requirements Instantly
               </h2>
               <p className="mt-4 text-base leading-7 text-[#5a6660]">
-                Upload hefty tender documents and let our AI extract key requirements, compliance
-                checklists, and evaluation criteria in seconds. Focus on building a winning
-                strategy, not reading boilerplate text.
+            Upload hefty tender documents and let our AI extract key requirements, dates, and
+            evaluation criteria. We assume your company registration, tax, SSNIT, and financials
+            are already in order.
               </p>
               <ul className="mt-6 space-y-3">
                 {["Automated Compliance Checklists", "Key Date Extraction"].map((item) => (
@@ -221,7 +221,7 @@ export default async function LandingPage() {
             <div className="rounded-2xl border border-[#d6e5db] bg-white p-5 shadow-[0_12px_30px_rgba(15,40,25,0.08)]">
               <div className="mb-4 flex justify-end">
                 <div className="max-w-[90%] rounded-2xl rounded-br-md bg-[#eef1ef] px-4 py-3 text-sm leading-6 text-[#0f1a14]">
-                  What documents do I usually need for a Ghana public tender?
+                  What does this tender pack actually ask us to submit?
                 </div>
               </div>
               <div className="flex gap-2">
@@ -229,12 +229,12 @@ export default async function LandingPage() {
                   <Sparkles className="h-3.5 w-3.5" aria-hidden />
                 </span>
                 <div className="rounded-2xl rounded-bl-md bg-[#E8F6EE] px-4 py-3 text-sm leading-6 text-[#0f1a14]">
-                  <p>Based on Section 4.2 of the uploaded document, you must provide:</p>
+                  <p>From the uploaded tender document, the pack asks you to complete:</p>
                   <ul className="mt-2 list-disc space-y-1 pl-5">
-                    <li>Valid GRA Tax Clearance</li>
-                    <li>SSNIT Clearance Certificate</li>
-                    <li>PPA Registration Certificate</li>
-                    <li>Ministry of Works &amp; Housing Certificate (D1/K1)</li>
+                    <li>The bidding forms in the GHANEPS pack</li>
+                    <li>Technical schedules, if listed in the IFB</li>
+                    <li>Evidence of similar work, if the notice asks for it</li>
+                    <li>Bid security, only if this tender requires it</li>
                   </ul>
                 </div>
               </div>
